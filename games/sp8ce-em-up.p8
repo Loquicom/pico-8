@@ -66,7 +66,7 @@ function update_game()
 	update_ground()
 	-- Game specific
 	update_bomb()
-	update_enemy()
+	if (player.life > 0) update_enemy()
 	update_collectible()
 	update_player()
 end
@@ -94,6 +94,7 @@ function set_end_mode()
 end
 
 function init_end()
+	init_timer()
 	endWaiting = timer(30, false)
 end
 
@@ -126,7 +127,7 @@ end
 --constant
 
 function init_constant()
-	cst_version = "0.30"
+	cst_version = "0.31"
 	-- Player
 	cst_player_life = 3
 	cst_player_energy = 5
@@ -181,13 +182,15 @@ function init_constant()
 			sprt_base = 128,
 			sprt_rota = 130,
 			speed = 1,
-			life = 20 
+			life = 40,
+			fire = 20 -- Fire speed
 		},
 		{
 			sprt_base = 132,
 			sprt_rota = 134,
-			speed = 1,
-			life = 20 
+			speed = 2,
+			life = 40,
+			fire = 10 -- Fire speed
 		}
 	}
 	-- Collectible
@@ -350,7 +353,7 @@ end
 function end_game()
 	if (player.life != 0) return
 	-- Player is dead, stop game
-	timer(90, false, _end_game)
+	timer(90, false, set_end_mode)
 	-- Death effect
 	explosion(player.x + 4, player.y + 4, {radius=4,duration=rnd(30)+60,number=18})
 	shake()
@@ -361,6 +364,8 @@ function end_game()
 	player.life = -1
 	player.x = 400
 	player.y = 400
+	-- Reset enemies
+	init_enemy()
 	-- Save best score
 	if (dget(2) < player.score) dset(2, flr(player.score))
 end
@@ -453,12 +458,6 @@ function _delayed_explosion(params)
 	explosion(params.x, params.y)
 end
 
-function _end_game()
-	init_timer()
-	init_enemy()
-	set_end_mode()
-end
-
 -->8
 --ennemy
 
@@ -466,10 +465,13 @@ function init_enemy()
 	local manager = enemy_manager or manage_enemy_infinite
 	enemies = {entities={}, bullets={}, spawn = {0,0,0}, kill = {0,0,0}}
 	enemy_manager = manager
-	boss = nil
+	kill_boss()
+	debug = ""
 end
 
 function update_enemy()
+	if (boss != nil) debug = boss.life
+
 	-- Enemies
 	for enemy in all (enemies.entities) do
 		-- Die
@@ -504,7 +506,7 @@ function update_enemy()
 	-- Boss
 	if (boss != nil) then
 		boss.update()
-		if (boss != nil and (boss.shield_vert or boss.shield_hori)) then
+		if ((boss.shield_vert or boss.shield_hori)) then
 			for i=1,3 do
 				local info = ternaire(boss.shield_hori, {x=0, y=1, offset={x=random(15),y=18}}, {x=-1, y=0, offset={x=-3,y=random(15)}})
 				particle(boss.x+info.offset.x, boss.y+info.offset.y, random(2,1), 1, {x=info.x, y=info.y}, 12, nil, 4)
@@ -545,6 +547,8 @@ function draw_enemy()
 		spr(sprt + 16, x, y+8)
 		spr(sprt + 17, x+8, y+8)
 	end
+
+	print(debug, 2, 10, 7)
 end
 
 --- === Functions === ---
@@ -679,13 +683,14 @@ function spawn_boss(type)
 		type = type,
 		invincible = false,
 		phase = 1,
-		life = 20,
+		life = cst_boss[type].life,
 		x = spawn.x,
 		y = spawn.y,
-		speed = cst_boss[type].speed + 1,
+		speed = cst_boss[type].speed,
 		move = false,
 		rotate = rotate,
 		rotate_timer = nil,
+		fire_timer = timer(cst_boss[type].fire, true, _ENV['_fire_boss'..type]),
 		shield_vert = false,
 		shield_hori = false,
 		sprite = ternaire(rotate, cst_boss[type].sprt_rota, cst_boss[type].sprt_base),
@@ -700,13 +705,23 @@ function spawn_boss(type)
 	end
 end
 
+function kill_boss()
+	if (boss == nil) return
+	-- Remove boss
+	timer_stop(boss.rotate_timer)
+	timer_stop(boss.fire_timer)
+	if (boss.rand_timer) timer_stop(boss.rand_timer)
+	rotate_delete_callback(on_rotate_boss)
+	boss = nil
+end
+
 function update_boss1()
 	-- Move
 	if (boss.move) then
 		if (boss.rotate) then
-			boss.y += boss.speed
+			boss.y += boss.speed * 3
 		else
-			boss.x -= boss.speed
+			boss.x -= boss.speed * 3
 		end
 	else
 		if (boss.rotate) then
@@ -730,7 +745,6 @@ function update_boss1()
 			boss.shield_vert = not boss.rotate
 		end
 	end
-	-- Fire
 end
 
 function change_phase_boss1()
@@ -838,6 +852,22 @@ function on_rotate_boss()
 	boss.rotate_timer = timer(90, false, function(boss) boss.move = true end, boss)
 end
 
+function _fire_boss1()
+	if (boss.move) return
+	local info = ternaire(boss.rotate, {offset={x=4,y=12},speed={{x=0,y=1},{x=-1,y=1},{x=1,y=1}}}, {offset={x=0,y=4},speed={{x=-1,y=0},{x=-1,y=1},{x=-1,y=-1}}})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[1].x,speedY=info.speed[1].y,sprite=116})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[2].x,speedY=info.speed[2].y,sprite=116})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[3].x,speedY=info.speed[3].y,sprite=116})
+	sfx(4)
+end
+
+function _fire_boss2()
+	local info = ternaire(boss.rotate, {offset={x=4,y=12},speed={x=0,y=1}}, {offset={x=0,y=4},speed={x=-1,y=0}})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed.x,speedY=info.speed.y,sprite=116})
+	if (boss.phase == 2) add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=-info.speed.x,speedY=-info.speed.y,sprite=116})
+	sfx(4)
+end
+
 -->8
 --collectible
 
@@ -917,7 +947,19 @@ function collision_player_fire(bullet)
 			-- Check no shield
 			if ((not rotation and not boss.shield_vert) or (rotation and not boss.shield_hori)) then
 				boss.life -= player_bullet_damage(bullet)
-				if (boss.phase == 1 and boss.life < cst_boss[boss.type].life / 2) boss.update = _ENV['change_phase_boss'..boss.type]
+				if (boss.phase == 1 and boss.life <= cst_boss[boss.type].life / 2) boss.update = _ENV['change_phase_boss'..boss.type]
+				if (boss.life <= 0) then
+					player.score += 42
+					explosion(boss.x + 8, boss.y + 8, {radius=4,duration=rnd(30)+60,number=18})
+					add(collectibles, {sprite=cst_collectible_sprt_life, x=boss.x+8, y=boss.y+8})
+					shake()
+					sfx(9)
+					kill_boss()
+				else
+					explosion(bullet.x+4, bullet.y+4)
+					shake(.6)
+					sfx(2)
+				end
 			else
 				sfx(8)
 			end
@@ -960,7 +1002,6 @@ function collision_collectible(collectible)
 end
 
 function collision_player_boss()
-	if (boss == nil) return
 	local info = rotate_collision_player_info()
 	local boss_coord = ternaire(boss.rotate, {{x=boss.x,y=boss.y+5},{x=boss.x+15,y=boss.y+15}}, {{x=boss.x+5,y=boss.y},{x=boss.x+15,y=boss.y+15}})
 	if (not player.invincible and collision_rectangle(boss_coord, {{x=player.x+info[1].x,y=player.y+info[1].y},{x=player.x+info[2].x,y=player.y+info[2].y}})) then
@@ -1128,6 +1169,7 @@ function update_bomb()
 			for enemy in all(enemies.entities) do
 				enemy.life -= 5
 			end
+			if (boss != nil) boss.life -= 5
 		end
 	end
 end
@@ -1510,6 +1552,7 @@ end
 -- 6 = player death
 -- 7 = collectible collected
 -- 8 = player bullet blocked
+-- 9 = boss death
 
 __gfx__
 00000000000660000006600000000000006600000000000000005500000550000055000000005500000000000000000000000077770000000000009999000000
@@ -1569,12 +1612,12 @@ b777b000b7777b00b7b000000b777b000b77b0000b77b00000b7b0000b777b0006b77b6006cccc60
 00000000088000000000000000008800056666500566665000000000056650000005665000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000005555000055550000000000005500000000550000000000000000000000000000000000000000000000000000000000
 0000000000000c500050050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000c5055d00d5500666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5aaa00000000c6d5cc6666cc06366360000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-500aaa000000c60000cccc0006633660000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-50000aaa0000c6000000000006633660000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-555555550000c6d50000000006366360000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000c500000000000666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000c5055d00d5500666600000880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+5aaa00000000c6d5cc6666cc06366360008778000008800000000000000000000000000000000000000000000000000000000000000000000000000000000000
+500aaa000000c60000cccc0006633660087777800087780000000000000000000000000000000000000000000000000000000000000000000000000000000000
+50000aaa0000c6000000000006633660087777800087780000000000000000000000000000000000000000000000000000000000000000000000000000000000
+555555550000c6d50000000006366360008778000008800000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000c500000000000666600000880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000c500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000056666200555000000005550000000000566660000552000000255000066665000000000000000055000000000000000000000000000000000000000
 00000055566666652666550000556662000000555666660000556500005655000066666555000000000000566500000000000000000000000000000000000000
@@ -1732,3 +1775,4 @@ __sfx__
 001200001c1631c1531c1431c1331c1231c1130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0007000023725287252d3021e105370021c0051330213302133021330213302133021330213302133021330213302133021330213302133021330213302133021320207002070022b0001f0001f0021f0021f002
 000800000c32300300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300
+000400003f643232333a64121231346411e2312f641172312a63112221246310d2211e63109221186310522111621032110c62101211086250121504625002150261500615006000060500600006000060000600
