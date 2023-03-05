@@ -126,7 +126,7 @@ end
 --constant
 
 function init_constant()
-	cst_version = "0.26"
+	cst_version = "0.27"
 	-- Player
 	cst_player_life = 3
 	cst_player_energy = 5
@@ -244,9 +244,7 @@ function draw_menu()
 	-- Menu
 	local y = 58
 	for i=1,#cst_menu_label do
-		local color = 13
-		if (i == menu_cursor) color = 7
-		print(cst_menu_label[i], 38, y, color)
+		print(cst_menu_label[i], 38, y, ternaire(i == menu_cursor, 7, 13))
 		y += 10
 	end
 	-- Selector
@@ -475,8 +473,7 @@ function update_enemy()
 		collision_spaceship(enemy)
 		-- Shield particle
 		if ((enemy.shield.left or enemy.shield.down) and random(64) != 8) then
-			local info = {x=-1, y=0, offset={x=-4,y=random(7)}}
-			if (enemy.shield.down) info = {x=0, y=1, offset={x=random(7),y=11}}
+			local info = ternaire(enemy.shield.down, {x=0, y=1, offset={x=random(7),y=11}}, {x=-1, y=0, offset={x=-4,y=random(7)}})
 			particle(enemy.x+info.offset.x, enemy.y+info.offset.y, random(2,1), 1, {x=info.x, y=info.y}, 12, nil, 4)
 		end
 	end
@@ -564,22 +561,16 @@ function manage_enemy_infinite()
 	-- When (5 type2 * number of type2 + number of type2) kill, add new type2
 	elseif (enemies.kill[2] != 0 and enemies.kill[2] % ((5*enemies.spawn[2])+enemies.spawn[2]) == 0) then
 		local spawn = rotate_enemy_spawn(134, random(120))
-		local type = 2
 		-- Check what type of enemy spawn
-		if (enemies.spawn[3] == 0 and enemies.spawn[2] == cst_enemy[3].spawn) then
-			type = 3
-		end
+		local type = ternaire(enemies.spawn[3] == 0 and enemies.spawn[2] == cst_enemy[3].spawn, 3, 2)
 		-- Spawn
 		spawn_enemy(type, spawn.x, spawn.y)
 		enemies.spawn[type] += 1
 	-- When (5 type1 * number of type1 + number of type1) kill, add new type1
 	elseif (enemies.kill[1] != 0 and enemies.kill[1] % ((5*enemies.spawn[1])+enemies.spawn[1]) == 0) then
 		local spawn = rotate_enemy_spawn(134, random(120))
-		local type = 1
 		-- Check what type of enemy spawn
-		if (enemies.spawn[2] == 0 and enemies.spawn[1] == cst_enemy[2].spawn) then
-			type = 2
-		end
+		local type = ternaire(enemies.spawn[2] == 0 and enemies.spawn[1] == cst_enemy[2].spawn, 2, 1)
 		-- Spawn
 		spawn_enemy(type, spawn.x, spawn.y)
 		enemies.spawn[type] += 1
@@ -619,13 +610,9 @@ end
 
 function _fire_enemy3(enemy)
 	if (rotation) then
-		local y = 1
-		if (player.y < enemy.y) y = -1 
-		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=0,speedY=y,sprite=82})
+		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=0,speedY=ternaire(player.y < enemy.y, -1, 1),sprite=82})
 	else
-		local x = 1
-		if (player.x < enemy.x) x = -1 
-		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=x,speedY=0,sprite=80})
+		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=ternaire(player.x < enemy.x, -1, 1),speedY=0,sprite=80})
 	end
 	sfx(4)
 end
@@ -769,26 +756,20 @@ end
 --ui
 
 function draw_ui()
-	local sprt = 0
 	-- Life
 	local x = 1
 	for i=1,cst_player_life do
-		sprt = 24
-		if (i > player.life) sprt = 25
-		spr(sprt, x, 114)
+		spr(ternaire(i > player.life, 25, 24), x, 114)
 		x += 9
 	end
 	-- Energy
 	x = 1
 	for i=1,cst_player_energy do
 		local flip = false
+		local sprt = ternaire(i <= player.energy, 67, 65)
 		if (i == 1 or i == cst_player_energy) then
 			flip = i == cst_player_energy
-			sprt = 64
-			if ((i == 1 and player.energy >= 1) or (flip and player.energy >= cst_player_energy)) sprt = 66
-		else
-			sprt = 65
-			if (i <= player.energy) sprt = 67
+			sprt = ternaire((i == 1 and player.energy >= 1) or (flip and player.energy >= cst_player_energy), 66, 64)
 		end
 		spr(sprt, x, 120, 1, 1, flip)
 		x+=8
@@ -928,11 +909,7 @@ function blast()
 end
 
 function _bomb_color()
-	if (bomb.color == 7) then
-		bomb.color = 15
-	else
-		bomb.color = 7
-	end
+	bomb.color = ternaire(bomb.color == 7, 15, 7)
 end
 
 -->8
@@ -948,40 +925,35 @@ function rotate()
 	-- Player animation
 	player.show = false
 	player.thruster.show = false
-	local sprites = cst_player_animation_rotate_sprt_fw
-	if (not rotation) sprites = cst_player_animation_rotate_sprt_bw
-	animate(sprites, cst_player_animation_rotate_duration, player.x, player.y, false, _rotate_player_animation)
+	animate(ternaire(rotation, cst_player_animation_rotate_sprt_fw, cst_player_animation_rotate_sprt_bw), cst_player_animation_rotate_duration, player.x, player.y, false, _rotate_player_animation)
 	-- Change animation sprites
-	player.thruster.sprites = cst_player_thruster_sprt_base
-	if (rotation) player.thruster.sprites = cst_player_thruster_sprt_rota
+	player.thruster.sprites = ternaire(rotation, cst_player_thruster_sprt_rota, cst_player_thruster_sprt_base)
 end
 
 function rotate_player_info(btn)
 	if (btn == nil) then
-		if (rotation) return {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}
-		return {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}}
+		return ternaire(rotation, {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}, {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}})
 	end
 	if (btn == 0) then
-		if (rotation) return {sprite=cst_player_sprt_rota[2], offset={x=-1,y=6}}
-		return {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}}
+		return ternaire(rotation, {sprite=cst_player_sprt_rota[2], offset={x=-1,y=6}}, {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}})
 	end
 	if (btn == 1) then
-		if (rotation) return {sprite=cst_player_sprt_rota[3], offset={x=1,y=6}}
-		return {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}}
+		return ternaire(rotation, {sprite=cst_player_sprt_rota[3], offset={x=1,y=6}}, {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}})
 	end
 	if (btn == 2) then
-		if (rotation) return {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}
-		return {sprite=cst_player_sprt_base[2], offset={x=-6,y=-1}}
+		return ternaire(rotation, {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}, {sprite=cst_player_sprt_base[2], offset={x=-6,y=-1}})
 	end
 	if (btn == 3) then
-		if (rotation) return {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}
-		return {sprite=cst_player_sprt_base[3], offset={x=-6,y=1}}
+		return ternaire(rotation, {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}, {sprite=cst_player_sprt_base[3], offset={x=-6,y=1}})
 	end
 end
 
 function rotate_player_border()
-	if (rotation) return {left={cond=-7,to=127}, right={cond=127,to=-7}, down={cond=120,to=120}, up={cond=0,to=0}}
-	return {left={cond=0,to=0}, right={cond=120,to=120}, down={cond=127,to=-7}, up={cond=-7,to=127}}
+	return ternaire(
+		rotation,
+		{left={cond=-7,to=127}, right={cond=127,to=-7}, down={cond=120,to=120}, up={cond=0,to=0}},
+		{left={cond=0,to=0}, right={cond=120,to=120}, down={cond=127,to=-7}, up={cond=-7,to=127}}
+	)
 end
 
 function rotate_bullet_info()
@@ -1007,18 +979,15 @@ function rotate_bullet_info()
 end
 
 function rotate_thruster_info()
-	if (rotation) return {x=0, y=1, offset={x=random(4,3),y=9}}
-	return {x=-1, y=0, offset={x=-2,y=random(4,3)}}
+	return ternaire(rotation, {x=0, y=1, offset={x=random(4,3),y=9}}, {x=-1, y=0, offset={x=-2,y=random(4,3)}})
 end
 
 function rotate_ground_spawn(baseX, baseY)
-	if (rotation) return {x=baseY, y=-baseX+128}
-	return {x=baseX, y=baseY}
+	return ternaire(rotation, {x=baseY, y=-baseX+128}, {x=baseX, y=baseY})
 end
 
 function rotate_ground_speed(speed)
-	if (rotation) return {x=0, y=speed}
-	return {x=-speed, y=0}
+	return ternaire(rotation, {x=0, y=speed}, {x=-speed, y=0})
 end
 
 function rotate_enemy1_info(speed, diffX, diffY)
@@ -1027,8 +996,8 @@ function rotate_enemy1_info(speed, diffX, diffY)
 	if (rotation) then
 		if (abs(diffY) < 40) then
 			diffX = limit(diffX, speed)
-			if (diffX < 0) sprite = cst_enemy[1].sprt + 3
-			if (diffX > 0) sprite = cst_enemy[1].sprt + 4
+			if (diffX < 0) sprite += 3 
+			if (diffX > 0) sprite += 4
 		else
 			diffX = 0
 		end
@@ -1037,8 +1006,8 @@ function rotate_enemy1_info(speed, diffX, diffY)
 	-- No rotation
 	if (abs(diffX) < 40) then
 		diffY = limit(diffY, speed)
-		if (diffY < 0) sprite = cst_enemy[1].sprt + 2
-		if (diffY > 0) sprite = cst_enemy[1].sprt + 1
+		if (diffY < 0) sprite += 2
+		if (diffY > 0) sprite += 1
 	else
 		diffY = 0
 	end
@@ -1046,8 +1015,7 @@ function rotate_enemy1_info(speed, diffX, diffY)
 end
 
 function rotate_enemy2_info(speed)
-	if (rotation) return {x=0, y=speed}
-	return {x=-speed, y=0}
+	return ternaire(rotation, {x=0, y=speed}, {x=-speed, y=0})
 end
 
 function rotate_enemy3_info(speed, x, y, diffX, diffY)
@@ -1056,30 +1024,27 @@ function rotate_enemy3_info(speed, x, y, diffX, diffY)
 	if (rotation) then
 		if (y < 8) move = speed
 		diffX = limit(diffX, speed)
-		if (diffX < 0) sprite = cst_enemy[3].sprt + 3
-		if (diffX > 0) sprite = cst_enemy[3].sprt + 4
+		if (diffX < 0) sprite += 3
+		if (diffX > 0) sprite += 4
 		return {x=diffX, y=move, sprite=sprite}
 	end
 	if (x > 112) move = -speed
 	diffY = limit(diffY, speed)
-	if (diffY < 0) sprite = cst_enemy[3].sprt + 2
-	if (diffY > 0) sprite = cst_enemy[3].sprt + 1
+	if (diffY < 0) sprite += 2
+	if (diffY > 0) sprite += 1
 	return {x=move, y=diffY, sprite=sprite}
 end
 
 function rotate_enemy_spawn(baseX, baseY)
-	if (rotation) return {x=baseY, y=-baseX+128}
-	return {x=baseX, y=baseY}
+	return ternaire(rotation, {x=baseY, y=-baseX+128}, {x=baseX, y=baseY})
 end
 
 function rotate_collision_player_info()
-	if (rotation) return {{x=2,y=0}, {x=5,y=7}}
-	return {{x=0,y=2}, {x=7,y=5}}
+	return ternaire(rotation, {{x=2,y=0}, {x=5,y=7}}, {{x=0,y=2}, {x=7,y=5}})
 end
 
 function rotate_collectible_info()
-	if (rotation) return {x=0, y=1}
-	return {x=-1, y=0}
+	return ternaire(rotation, {x=0, y=1}, {x=-1, y=0})
 end
 
 function _rotate_player_animation()
@@ -1277,6 +1242,11 @@ function contain(tab, val)
 		if (v == val) return true
 	end
 	return false
+end
+
+function ternaire(cond, val1, val2)
+	if (cond) return val1
+	return val2
 end
 
 -->8
