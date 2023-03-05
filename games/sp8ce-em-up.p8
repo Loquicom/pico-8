@@ -19,7 +19,6 @@ function init_game()
 	init_player()
 	init_enemy()
 	init_bomb()
-	spawn_enemy(1, 120, 64)
 end
 
 function update_game()
@@ -122,12 +121,14 @@ function init_constant()
 			{
 				sprt = 84,
 				speed = 0.5,
-				life = 2
+				life = 2,
+				spawn = 8 -- After x enemy of previous type the first enemy of this type spawn
 			},
 			{
 				sprt = 100,
 				speed = 1.5,
-				life = 3
+				life = 3,
+				spawn = 4 -- After x enemy of previous type the first enemy of this type spawn
 			}
 		}
 	}
@@ -287,7 +288,7 @@ end
 --ennemy
 
 function init_enemy()
-	enemies = {entities={}, bullets={}, spawn = {0,0,0}}
+	enemies = {entities={}, bullets={}, spawn = {0,0,0}, kill = {0,0,0}}
 end
 
 function update_enemy()
@@ -298,6 +299,8 @@ function update_enemy()
 			if (enemy.fire != nil) timer_stop(enemy.fire)
 			shake(0.6)
 			player.score += enemy.type
+			enemies.kill[enemy.type] += 1
+			explosion(enemy.x, enemy.y)
 			timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
 		-- Move
@@ -312,6 +315,7 @@ function update_enemy()
 			if (player.score < 0) player.score = 0
 			timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
+		collision_spaceship(enemy)
 	end
 	-- Bullets
 	for bullet in all(enemies.bullets) do
@@ -319,6 +323,8 @@ function update_enemy()
 		bullet.y += bullet.speedY
 		collison_enemy_fire(bullet)
 	end
+	-- Manage spawn
+	manage_enemy()
 end
 
 function draw_enemy()
@@ -347,8 +353,44 @@ function spawn_enemy(type, x, y)
 	add(enemies.entities, enemy)
 end
 
+function manage_enemy()
+	-- Spawn first ennemy
+	if (enemies.spawn[1] == 0) then
+		local spawn = rotate_enemy_spawn(134, random(120))
+		spawn_enemy(1, spawn.x, spawn.y)
+		enemies.spawn[1] += 1
+	-- When type3 is killed 5 time decread fire cd
+	elseif (enemies.kill[3] != 0 and enemies.kill[3] % 2 == 0) then
+		for enemy in all(enemies) do
+			if (enemy.type == 3) enemy.fire.duration -= 2
+		end
+	-- When (5 type2 * number of type2 + number of type2) kill, add new type2
+	elseif (enemies.kill[2] != 0 and enemies.kill[2] % ((5*enemies.spawn[2])+enemies.spawn[2]) == 0) then
+		local spawn = rotate_enemy_spawn(134, random(120))
+		local type = 2
+		-- Check what type of enemy spawn
+		if (enemies.spawn[3] == 0 and enemies.spawn[2] == cst.enemy[3].spawn) then
+			type = 3
+		end
+		-- Spawn
+		spawn_enemy(type, spawn.x, spawn.y)
+		enemies.spawn[type] += 1
+	-- When (5 type1 * number of type1 + number of type1) kill, add new type1
+	elseif (enemies.kill[1] != 0 and enemies.kill[1] % ((5*enemies.spawn[1])+enemies.spawn[1]) == 0) then
+		local spawn = rotate_enemy_spawn(134, random(120))
+		local type = 1
+		-- Check what type of enemy spawn
+		if (enemies.spawn[2] == 0 and enemies.spawn[1] == cst.enemy[2].spawn) then
+			type = 2
+		end
+		-- Spawn
+		spawn_enemy(type, spawn.x, spawn.y)
+		enemies.spawn[type] += 1
+	end
+end
+
 function move_enemy_type1(enemy)
-	local info = rotate_enemy1_info(enemy.speed, limit(player.x - enemy.x, enemy.speed), limit(player.y - enemy.y, enemy.speed))
+	local info = rotate_enemy1_info(enemy.speed, player.x - enemy.x, player.y - enemy.y)
 	enemy.sprite = info.sprite
 	enemy.x += info.x
 	enemy.y += info.y
@@ -361,7 +403,7 @@ function move_enemy_type2(enemy)
 end
 
 function move_enemy_type3(enemy)
-	local info = rotate_enemy3_info(enemy.speed, enemy.x, enemy.y, limit(player.x - enemy.x, enemy.speed), limit(player.y - enemy.y, enemy.speed))
+	local info = rotate_enemy3_info(enemy.speed, enemy.x, enemy.y, player.x - enemy.x, player.y - enemy.y)
 	enemy.sprite = info.sprite
 	enemy.x += info.x
 	enemy.y += info.y
@@ -409,7 +451,7 @@ end
 
 function collison_enemy_fire(bullet)
 	local info = rotate_collison_player_info()
-	if (not player.invincible and collison_rectangle({{x=bullet.x+1, y=bullet.y},{x=bullet.x+4,y=bullet.y+4}}, {{x=player.x+info[1].x,y=player.y+info[1].y},{x=player.x+info[2].x,y=player.y+info[2].y}})) then
+	if (not player.invincible and collison_rectangle({{x=bullet.x+1, y=bullet.y+1},{x=bullet.x+4,y=bullet.y+4}}, {{x=player.x+info[1].x,y=player.y+info[1].y},{x=player.x+info[2].x,y=player.y+info[2].y}})) then
 		player.life -= 1
 		player.invincible = true
 		timer(4, true, _blink_player, {cpt=0,enemy=enemy})
@@ -417,8 +459,14 @@ function collison_enemy_fire(bullet)
 	end
 end
 
-function collision_spaceship()
-
+function collision_spaceship(enemy)
+	local info = rotate_collison_player_info()
+	if (not player.invincible and collison_rectangle({{x=enemy.x, y=enemy.y},{x=enemy.x+7,y=enemy.y+7}}, {{x=player.x+info[1].x,y=player.y+info[1].y},{x=player.x+info[2].x,y=player.y+info[2].y}})) then
+		player.life -= 1
+		player.invincible = true
+		timer(4, true, _blink_player, {cpt=0,enemy=enemy})
+		enemy.life = 0
+	end
 end
 
 function collison_collectible()
@@ -704,13 +752,25 @@ end
 
 function rotate_enemy1_info(speed, diffX, diffY)
 	local sprite = cst.enemy[1].sprt
+	-- Rotation
 	if (rotation) then
-		if (diffX < 0) sprite = cst.enemy[1].sprt + 3
-		if (diffX > 0) sprite = cst.enemy[1].sprt + 4
+		if (abs(diffY) < 40) then
+			diffX = limit(diffX, speed)
+			if (diffX < 0) sprite = cst.enemy[1].sprt + 3
+			if (diffX > 0) sprite = cst.enemy[1].sprt + 4
+		else
+			diffX = 0
+		end
 		return {x=diffX, y=speed, sprite=sprite}
 	end
-	if (diffY < 0) sprite = cst.enemy[1].sprt + 2
-	if (diffY > 0) sprite = cst.enemy[1].sprt + 1
+	-- No rotation
+	if (abs(diffX) < 40) then
+		diffY = limit(diffY, speed)
+		if (diffY < 0) sprite = cst.enemy[1].sprt + 2
+		if (diffY > 0) sprite = cst.enemy[1].sprt + 1
+	else
+		diffY = 0
+	end
 	return {x=-speed, y=diffY, sprite=sprite}
 end
 
@@ -724,11 +784,13 @@ function rotate_enemy3_info(speed, x, y, diffX, diffY)
 	local move = 0
 	if (rotation) then
 		if (y < 8) move = speed
+		diffx = limit(diffX, speed)
 		if (diffX < 0) sprite = cst.enemy[3].sprt + 3
 		if (diffX > 0) sprite = cst.enemy[3].sprt + 4
 		return {x=diffX, y=move, sprite=sprite}
 	end
 	if (x > 112) move = -speed
+	diffY = limit(diffY, speed)
 	if (diffY < 0) sprite = cst.enemy[3].sprt + 2
 	if (diffY > 0) sprite = cst.enemy[3].sprt + 1
 	return {x=move, y=diffY, sprite=sprite}
@@ -755,6 +817,7 @@ end
 function init_timer()
 	timers = {}
 	animations = {}
+	particles = {}
 end
 
 function update_timer()
@@ -776,6 +839,14 @@ function draw_timer()
 	-- Draw animations
 	for animation in all(animations) do
 		if (animation.show) spr(animation.sprites[animation.index], animation.x, animation.y)
+	end
+	-- Draw particles
+	for particle in all(particles) do
+		if particle.radius <= 1 then
+			pset(particle.x, particle.y, particle.color)
+		else
+			circfill(particle.x, particle.y, particle.radius, particle.color)
+		end
 	end
 end
 
@@ -833,6 +904,58 @@ function _shake(params, timer)
 	if (params.intensity < .2) then
 		camera()
 		timer_stop(timer)
+	end
+end
+
+function particle(x, y, duration, radius, move, physics, colors)
+	local particle = {
+		time = 0,
+		duration = duration,
+		x = x,
+		y = y,
+		radius = radius,
+		move = move,
+		physics = physics,
+		color = colors[1],
+		colors = colors
+	}
+	add(particles, particle)
+	timer(1, true, _particle, particle)
+end
+
+function _particle(particle, timer)
+	-- Particle life
+	particle.time += 1
+	if (particle.time > particle.duration) then
+		timer_stop(timer)
+		return del(particles, particle) -- Return to stop
+	end
+
+	-- Set color depending on life of the particle
+	local divider = particle.duration / #particle.colors
+	particle.color = particle.colors[flr(particle.time/divider)+1]
+
+	-- Set physics effect
+	if (particle.physics.gravity) particle.move.y += 0.5
+	if (particle.physics.grow) particle.radius += 0.1
+	if (particle.physics.reduce) particle.radius -= 0.1
+
+	-- Move particle
+	particle.x += particle.move.x
+	particle.y += particle.move.y
+end
+
+function explosion(x, y)
+	for i=0,8 do
+		particle(
+			x,
+			y,
+			rnd(25)+30,
+			2,
+			{x=rnd(2)-1, y=rnd(2)-1},
+			{reduce=true},
+			{10,7,6,6,5}
+		)
 	end
 end
 
