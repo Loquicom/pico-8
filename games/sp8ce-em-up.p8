@@ -85,8 +85,13 @@ end
 --- === End / Game over === ---
 
 function set_end_mode()
+	init_end()
 	_update = update_end
 	_draw = draw_end
+end
+
+function init_end()
+	endWaiting = timer(30, false)
 end
 
 function update_end()
@@ -94,10 +99,11 @@ function update_end()
 	update_timer()
 	update_ground()
 	-- End specific
-	if (btnp(5)) then
-		init_game()
-		_update = update_game
-		_draw = draw_game
+	if (timer_is_end(endWaiting) and btnp(4)) then
+		set_title_mode()
+	end
+	if (timer_is_end(endWaiting) and btnp(5)) then
+		set_game_mode()
 	end
 end
 
@@ -110,6 +116,7 @@ function draw_end()
 	print("game over",44,44,7)
  	print("your score:"..player.score,34,54,7)
   	print("press ❎ to play again!",18,72,6)
+	print("press 🅾️ to return to the menu",5,80,6)
 end
 
 -->8
@@ -117,7 +124,7 @@ end
 
 function init_constant()
 	cst = {
-		version = "0.16.0",
+		version = "0.17.0",
 		player = {
 			speed = 2,
 			life = 3,
@@ -193,16 +200,19 @@ end
 
 function init_menu()
 	menu = {
-		cursor = 1,
+		cursor = 2,
 		label = {
+			"nOT AVAILABLE",
 			"iFINITE MODE",
-			"nOT AVAILABLE"
+			""
 		},
 		helper = {
+			"mAYBE AVAILABLE ONE DAY",
 			"tRY TO BEAT YOUR SCORE",
-			"mAYBE AVAILABLE ONE DAY"
+			"explosion!!!!!!!!!!!!"
 		},
 		action = {
+			start_story_game,
 			start_infinite_game,
 			nothing
 		}
@@ -228,7 +238,7 @@ function draw_menu()
 	spr(79, 88, 36) -- U
 	spr(74, 96, 36) -- P
 	-- Menu
-	local y = 64
+	local y = 58
 	for i=1,#menu.label do
 		local color = 13
 		if (i == menu.cursor) color = 7
@@ -236,7 +246,7 @@ function draw_menu()
 		y += 10
 	end
 	-- Selector
-	spr(0, 28, 64 + 10 * (menu.cursor - 1))
+	spr(0, 28, 58 + 10 * (menu.cursor - 1))
 	-- Helper
 	print(menu.helper[menu.cursor], 20, 98, 6)
 	print("pRESS ❎ TO SELECT", 28, 108, 6)
@@ -249,12 +259,16 @@ end
 
 --- === Functions === ---
 
+function start_story_game()
+	init_ground()
+end
+
 function start_infinite_game()
 	set_game_mode()
 end
 
 function nothing()
-	explosion(64,64,{radius=3,duration=rnd(120)+120,number=28})
+	explosion(random(100,20),random(100,20),{radius=3,duration=rnd(120)+120,number=28})
 end
 
 -->8
@@ -423,8 +437,7 @@ function _delayed_explosion(params)
 end
 
 function _end_game()
-	_update = update_end
-	_draw = draw_end
+	set_end_mode()
 end
 
 -->8
@@ -1118,6 +1131,11 @@ end
 function random(max, min)
 	-- max include, min include
 	if (min == nil) min = 0
+	if (min > max) then
+		local tmp = min
+		min = max
+		max = tmp
+	end
 	return flr(rnd(max+1-min))+min
 end
 
