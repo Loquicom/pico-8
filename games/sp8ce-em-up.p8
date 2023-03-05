@@ -126,7 +126,7 @@ end
 --constant
 
 function init_constant()
-	cst_version = "0.29"
+	cst_version = "0.30"
 	-- Player
 	cst_player_life = 3
 	cst_player_energy = 5
@@ -504,7 +504,7 @@ function update_enemy()
 	-- Boss
 	if (boss != nil) then
 		boss.update()
-		if ((boss.shield_vert or boss.shield_hori)) then
+		if (boss != nil and (boss.shield_vert or boss.shield_hori)) then
 			for i=1,3 do
 				local info = ternaire(boss.shield_hori, {x=0, y=1, offset={x=random(15),y=18}}, {x=-1, y=0, offset={x=-3,y=random(15)}})
 				particle(boss.x+info.offset.x, boss.y+info.offset.y, random(2,1), 1, {x=info.x, y=info.y}, 12, nil, 4)
@@ -590,7 +590,7 @@ end
 
 function manage_enemy_scripted()
 	if (enemies.spawn[1] == 0) then
-		spawn_boss(1)
+		spawn_boss(2)
 		enemies.spawn[1] += 1
 	end
 end
@@ -677,7 +677,8 @@ function spawn_boss(type)
 	local spawn = rotate_enemy_spawn(134, 56, rotate)
 	boss = {
 		type = type,
-		phase = 2,
+		invincible = false,
+		phase = 1,
 		life = 20,
 		x = spawn.x,
 		y = spawn.y,
@@ -697,14 +698,6 @@ function spawn_boss(type)
 		boss.rand = 64
 		boss.rand_timer = timer(60, true, function() boss.rand = random(20, 108) end)
 	end
-
-	-- Phase 2
-	--spawn = rotate_enemy_spawn(-20, 56)
-	--boss.phase = 2
-	--boss.rotate = rotation
-	--boss.update = update_boss2_phase2
-	--boss.x = spawn.x
-	--boss.y = spawn.y
 end
 
 function update_boss1()
@@ -740,7 +733,22 @@ function update_boss1()
 	-- Fire
 end
 
+function change_phase_boss1()
+	-- Out of screen
+	if (boss.x < -20 or boss.y > 140) then
+		boss.phase = 2
+		boss.update = update_boss1
+	else -- Go outside the screen
+		if (boss.rotate) then
+			boss.y += boss.speed
+		else
+			boss.x -= boss.speed
+		end
+	end
+end
+
 function update_boss2()
+	if (player.life <= 0) return
 	-- Move
 	if (boss.move) then
 		if (boss.rotate) then
@@ -751,14 +759,14 @@ function update_boss2()
 	else
 		if (boss.rotate) then
 			if (boss.y < 4) boss.y += boss.speed
-			boss.x += limit(player.x - boss.x-4, 1)
+			boss.x += limit(player.x - boss.x-4, boss.speed)
 		else
 			if (boss.x > 108) boss.x -= boss.speed
-			boss.y += limit(player.y - boss.y-4, 1)
+			boss.y += limit(player.y - boss.y-4, boss.speed)
 		end
 	end
 	-- Out of screen
-	if (boss.x < -20 or boss.x > 140 or boss.y < -20 or boss.y > 140) then
+	if (boss.x > 140 or boss.y < -20) then
 		local spawn = rotate_enemy_spawn(134, 56, not rotation)
 		boss.move = false
 		boss.rotate = not rotation
@@ -769,10 +777,59 @@ function update_boss2()
 end
 
 function update_boss2_phase2()
-	if (rotation) then
-		boss.y += limit(player.y - boss.y-4, boss.speed)
+	if (player.life <= 0) return
+	if (boss.move) then
+		if (boss.rotate) then
+			boss.y -= boss.speed
+		else
+			boss.x += boss.speed
+		end
 	else
-		boss.x += limit(player.x - boss.x-4, boss.speed)
+		-- Player behind boss
+		if ((boss.rotate == rotation) and ((rotation and player.y-16 > boss.y) or (not rotation and player.x+16 < boss.x))) then 
+			on_rotate_boss()
+		end
+		-- Move
+		if (rotation) then
+			boss.x += limit(player.x - boss.x-4, boss.speed)
+		else
+			boss.y += limit(player.y - boss.y-4, boss.speed)
+		end
+		if (boss.rotate and boss.y > 108) boss.y -= boss.speed
+		if (not boss.rotate and boss.x < 4) boss.x += boss.speed
+	end
+	-- Out of screen
+	if (boss.x > 140 or boss.y < -20) then
+		local spawn = rotate_enemy_spawn(-20, 56)
+		boss.move = false
+		boss.rotate = rotation
+		boss.sprite = ternaire(rotation, cst_boss[boss.type].sprt_rota, cst_boss[boss.type].sprt_base) + 4
+		boss.x = spawn.x
+		boss.y = spawn.y
+		boss.shield_vert = rotation
+		boss.shield_hori = not rotation
+	end
+end
+
+function change_phase_boss2()
+	-- Out of screen
+	if (boss.x > 140 or boss.y < -20) then
+		local spawn = rotate_enemy_spawn(-20, 56)
+		boss.phase = 2
+		boss.update = update_boss2_phase2
+		boss.rotate = rotation
+		boss.sprite = ternaire(rotation, cst_boss[boss.type].sprt_rota, cst_boss[boss.type].sprt_base) + 4
+		boss.x = spawn.x
+		boss.y = spawn.y
+		boss.shield_vert = rotation
+		boss.shield_hori = not rotation
+		rotate_delete_callback(on_rotate_boss)
+	else -- Go outside the screen
+		if (boss.rotate) then
+			boss.y -= boss.speed
+		else
+			boss.x += boss.speed
+		end
 	end
 end
 
@@ -854,12 +911,13 @@ function collision_player_fire(bullet)
 		end
 	end
 	-- Boss
-	if (boss != nil) then
+	if (boss != nil and not boss.invincible) then
 		local boss_coord = ternaire(boss.rotate, {{x=boss.x,y=boss.y+5},{x=boss.x+15,y=boss.y+15}}, {{x=boss.x+5,y=boss.y},{x=boss.x+15,y=boss.y+15}})
 		if (collision_rectangle({{x=bullet.x+1, y=bullet.y+1},{x=bullet.x+4,y=bullet.y+4}}, boss_coord)) then
 			-- Check no shield
 			if ((not rotation and not boss.shield_vert) or (rotation and not boss.shield_hori)) then
-				shake()
+				boss.life -= player_bullet_damage(bullet)
+				if (boss.phase == 1 and boss.life < cst_boss[boss.type].life / 2) boss.update = _ENV['change_phase_boss'..boss.type]
 			else
 				sfx(8)
 			end
@@ -902,6 +960,7 @@ function collision_collectible(collectible)
 end
 
 function collision_player_boss()
+	if (boss == nil) return
 	local info = rotate_collision_player_info()
 	local boss_coord = ternaire(boss.rotate, {{x=boss.x,y=boss.y+5},{x=boss.x+15,y=boss.y+15}}, {{x=boss.x+5,y=boss.y},{x=boss.x+15,y=boss.y+15}})
 	if (not player.invincible and collision_rectangle(boss_coord, {{x=player.x+info[1].x,y=player.y+info[1].y},{x=player.x+info[2].x,y=player.y+info[2].y}})) then
