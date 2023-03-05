@@ -6,33 +6,75 @@ __lua__
 --gameloop
 
 function _init()
+	init_constant()
+	init_ground()
+	set_title_mode()
+end
+
+--- === Title === ---
+
+function set_title_mode()
+	init_title()
+	_update = update_title
+	_draw = draw_title
+end
+
+function init_title()
+	init_timer()
+	init_menu()
+end
+
+function update_title()
+	-- Update timer ground animation
+	update_timer()
+	update_ground()
+	-- Title specific
+	update_menu()
+end
+
+function draw_title()
+	-- Draw timer and ground animation
+	cls(1)
+	draw_background()
+	draw_timer()
+	draw_foreground()
+	-- Title specific
+	draw_menu()
+	draw_credit()
+end
+
+--- === Game === ---
+
+function set_game_mode()
 	init_game()
 	_update = update_game
 	_draw = draw_game
 end
 
 function init_game()
-	init_constant()
 	init_timer()
 	init_rotate()
-	init_ground()
 	init_player()
 	init_enemy()
 	init_bomb()
 end
 
 function update_game()
+	-- Update timer ground animation
 	update_timer()
 	update_ground()
+	-- Game specific
 	update_bomb()
 	update_enemy()
 	update_player()
 end
 
 function draw_game()
+	-- Draw timer and ground animation
 	cls(1)
 	draw_background()
 	draw_timer()
+	-- Game specific
 	draw_enemy()
 	draw_player()
 	draw_foreground()
@@ -40,9 +82,18 @@ function draw_game()
 	draw_ui()
 end
 
+--- === End / Game over === ---
+
+function set_end_mode()
+	_update = update_end
+	_draw = draw_end
+end
+
 function update_end()
+	-- Update timer ground animation
 	update_timer()
 	update_ground()
+	-- End specific
 	if (btnp(5)) then
 		init_game()
 		_update = update_game
@@ -51,9 +102,11 @@ function update_end()
 end
 
 function draw_end()
+	-- Draw timer and ground animation
 	cls(1)
 	draw_background()
 	draw_foreground()
+	-- End specific
 	print("game over",44,44,7)
  	print("your score:"..player.score,34,54,7)
   	print("press ❎ to play again!",18,72,6)
@@ -64,6 +117,7 @@ end
 
 function init_constant()
 	cst = {
+		version = "0.16.0",
 		player = {
 			speed = 2,
 			life = 3,
@@ -135,6 +189,75 @@ function init_constant()
 end
 
 -->8
+--title & end
+
+function init_menu()
+	menu = {
+		cursor = 1,
+		label = {
+			"iFINITE MODE",
+			"nOT AVAILABLE"
+		},
+		helper = {
+			"tRY TO BEAT YOUR SCORE",
+			"mAYBE AVAILABLE ONE DAY"
+		},
+		action = {
+			start_infinite_game,
+			nothing
+		}
+	}
+end
+
+function update_menu()
+ 	if (btnp(2) and menu.cursor > 1)menu.cursor -= 1
+	if (btnp(3) and menu.cursor < #menu.label) menu.cursor += 1
+	if (btnp(4) or btnp(5)) menu.action[menu.cursor]()
+end
+
+function draw_menu()
+	-- Logo
+	spr(73, 20, 36) -- S
+	spr(74, 28, 36) -- P
+	spr(75, 36, 36) -- 8
+	spr(76, 44, 36) -- C
+	spr(77, 52, 36) -- E
+	print("'", 60, 36, 7) -- '
+	spr(77, 64, 36) -- E
+	spr(78, 72, 36) -- M
+	spr(79, 88, 36) -- U
+	spr(74, 96, 36) -- P
+	-- Menu
+	local y = 64
+	for i=1,#menu.label do
+		local color = 13
+		if (i == menu.cursor) color = 7
+		print(menu.label[i], 38, y, color)
+		y += 10
+	end
+	-- Selector
+	spr(0, 28, 64 + 10 * (menu.cursor - 1))
+	-- Helper
+	print(menu.helper[menu.cursor], 20, 98, 6)
+	print("pRESS ❎ TO SELECT", 28, 108, 6)
+end
+
+function draw_credit()
+	print("bY lOQUICOM", 2, 120, 7)
+	print("v:"..cst.version, 96, 120, 7)
+end
+
+--- === Functions === ---
+
+function start_infinite_game()
+	set_game_mode()
+end
+
+function nothing()
+	explosion(64,64,{radius=3,duration=rnd(120)+120,number=28})
+end
+
+-->8
 --player
 
 function init_player()
@@ -143,8 +266,8 @@ function init_player()
 		x = 18,
 		y = 64,
 		score = 0,
-		life = cst.player.life-2,
-		energy = 0,
+		life = cst.player.life,
+		energy = 5,
 		bomb = false,
 		invincible = false,
 		sprite = cst.player.sprt.base[1],
@@ -163,14 +286,7 @@ function init_player()
 end
 
 function update_player()
-	if (player.show and player.life < 1) then
-		player.show = false
-		player.thruster.animation.show = false
-		timer_stop(player.timers.thruster)
-		timer(180, false, _end_game)
-		shake()	
-		return
-	end
+	end_game()
 	move_player()
 	action_player()
 	update_bullets()
@@ -190,6 +306,23 @@ function draw_player()
 end
 
 --- === Functions === ---
+
+function end_game()
+	if (player.life != 0) return
+	-- Player is dead, stop game
+	timer(90, false, _end_game)
+	-- Death effect
+	explosion(player.x + 4, player.y + 4, {radius=4,duration=rnd(30)+60,number=18})
+	shake()	
+	-- Remove player
+	player.show = false
+	player.thruster.animation.show = false
+	player.thruster.particles = {}
+	timer_stop(player.timers.thruster)
+	player.life = -1
+	player.x = 400
+	player.y = 400
+end
 
 function move_player()
 	-- Can't move if sprite is not show
@@ -310,7 +443,7 @@ function update_enemy()
 			shake(0.6)
 			player.score += enemy.type
 			enemies.kill[enemy.type] += 1
-			explosion(enemy.x, enemy.y)
+			explosion(enemy.x+4, enemy.y+4)
 			timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
 		-- Move
@@ -418,6 +551,8 @@ function move_enemy_type3(enemy)
 	enemy.x += info.x
 	enemy.y += info.y
 end
+
+--- === Timers === ---
 
 function _fire_enemy2(enemy)
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=1,speedY=1,sprite=98})
@@ -645,7 +780,7 @@ function update_bomb()
 		if (bomb.radius > 140) then
 			bomb.back = true
 			-- Damage
-			for enemy in all(enemies) do
+			for enemy in all(enemies.entities) do
 				enemy.life -= 5
 			end
 		end
@@ -858,6 +993,8 @@ function draw_timer()
 			circfill(particle.x, particle.y, particle.radius, particle.color)
 		end
 	end
+
+	
 end
 
 --- === Functions === ---
@@ -955,13 +1092,19 @@ function _particle(particle, timer)
 	particle.y += particle.move.y
 end
 
-function explosion(x, y)
-	for i=0,8 do
+function explosion(x, y, params)
+	-- Parameter
+	if (params == nil) params = {}
+	if (params.number == nil) params.number = 8
+	if (params.duration == nil) params.duration = rnd(25)+30
+	if (params.radius == nil) params.radius = 2
+	-- Add particles for explosion effect
+	for i=0,params.number do
 		particle(
 			x,
 			y,
-			rnd(25)+30,
-			2,
+			params.duration,
+			params.radius,
 			{x=rnd(2)-1, y=rnd(2)-1},
 			{reduce=true},
 			{10,7,6,6,5}
