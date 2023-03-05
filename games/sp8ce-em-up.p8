@@ -127,7 +127,7 @@ end
 
 function init_constant()
 	cst = {
-		version = "0.24",
+		version = "0.25",
 		player = {
 			speed = {
 				base = 2,
@@ -236,15 +236,18 @@ function init_menu()
 			nothing
 		}
 	}
+	explosion_counter = 0
 end
 
 function update_menu()
  	if (btnp(2) and menu.cursor > 1) then
 		menu.cursor -= 1
+		explosion_counter = 0
 		sfx(0)
 	end
 	if (btnp(3) and menu.cursor < #menu.label) then
 		menu.cursor += 1
+		explosion_counter = 0
 		sfx(0)
 	end
 	if (btnp(4) or btnp(5)) then
@@ -298,6 +301,8 @@ end
 
 function nothing()
 	explosion(random(100,20),random(100,20),{radius=3,duration=rnd(120)+120,number=28})
+	explosion_counter += 1
+	if (dget(3) < explosion_counter) dset(3, explosion_counter)
 end
 
 -->8
@@ -486,7 +491,7 @@ function update_enemy()
 			-- Outside the map
 			del(enemies.entities, enemy)
 			if (enemy.fire != nil) timer_stop(enemy.fire)
-			player.score -= enemy.type*2
+			if (player.life > 0) player.score -= enemy.type*2
 			if (player.score < 0) player.score = 0
 			timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
