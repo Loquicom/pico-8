@@ -4,7 +4,9 @@ __lua__
 --gameloop
 
 function _init()
+	init_constant()
 	init_timer()
+	init_rotate()
 	init_ground()
 	make_player()
 end
@@ -24,10 +26,32 @@ function _draw()
 end
 
 -->8
+-- constant
+
+function init_constant()
+	cst = {
+		player = {
+			speed = 2,
+			sprt = {
+				base = {1,2,3},
+				rota = {7,8,9}
+			},
+			thruster = {
+				sprt = {
+					base = {16,17,18,19,32,33,34,35},
+					rota = {20,21,22,23,36,37,38,39}
+				}
+			}
+		}
+	}
+end
+
+-->8
 --player
 
 function make_player()
 	player = {}
+	player.show = true
 	player.sprite = 1
 	player.x = 18
 	player.y = 64
@@ -40,26 +64,42 @@ end
 
 function update_player()
 	move_player()
+	action_player()
 	update_bullets()
 end
 
 function move_player()
+	-- Can't move if sprite is not show
+	if (not player.show) return
 	-- Detect pressed button set speed end sprite
 	local x = 0
 	local y = 0
-	local thrusterOffset = 0
-	player.sprite = 1
-	if (btn(0)) x -= player.speed -- Left
-	if (btn(1)) x += player.speed -- Right
+	local info = rotate_player_info()
+	local thrusterOffset = info.offset
+	player.sprite = info.sprite
+	if (btn(0)) then
+		x -= player.speed -- Left
+		info = rotate_player_info(0)
+		player.sprite = info.sprite
+		thrusterOffset = info.offset
+	end
+	if (btn(1)) then 
+		x += player.speed -- Right
+		info = rotate_player_info(1)
+		player.sprite = info.sprite
+		thrusterOffset = info.offset
+	end
 	if (btn(2)) then -- Up
 		y -= player.speed
-		player.sprite = 3
-		thrusterOffset = -1
+		info = rotate_player_info(2)
+		player.sprite = info.sprite
+		thrusterOffset = info.offset
 	end
 	if (btn(3)) then -- Down
 		y += player.speed
-		player.sprite = 2
-		thrusterOffset = 1
+		info = rotate_player_info(3)
+		player.sprite = info.sprite
+		thrusterOffset = info.offset
 	end
 	-- Adapt diagonal speed
 	if (x != 0 and y != 0) then
@@ -75,32 +115,48 @@ function move_player()
 	if (player.y > 127) player.y = -7
 	if (player.y < -7) player.y = 127
 	-- Set thruster position
-	player.thruster.x = player.x - 6
-	player.thruster.y = player.y + thrusterOffset
+	if (rotation) then
+		thrusterOffset.y = 6
+	else
+		thrusterOffset.x = -6
+	end
+	player.thruster.x = player.x + thrusterOffset.x
+	player.thruster.y = player.y + thrusterOffset.y
 end
 
-function update_bullets()
+function action_player()
+	-- Do nothing if player is hide
+	if (not player.show) return
+	-- Bullets
+	local info = rotate_bullet_info()
 	if (btn(4) and timer_is_end(player.timers.bullet)) then
-		local bullet = {x=player.x,y=player.y+2,speed=3,sprite=49,diag=false}
-		if (player.power == 0) bullet.sprite = 48
+		local bullet = {x=player.x,y=player.y,speed=info.speed.base,sprite=info.sprites[2]}
+		if (player.power == 0) bullet.sprite = info.sprites[1]
+		-- Offset to align
+		if (rotation) then
+			bullet.x += 2
+		else
+			bullet.y += 2
+		end
 		add(player.bullets, bullet)
 		if (player.power >= 2) then
 			-- Diagonal bullets
-			local sprite = 50
-			if (player.power > 2) sprite = 51
-			add(player.bullets, {x=player.x,y=player.y,speed=3,sprite=sprite,diag=true})
-			add(player.bullets, {x=player.x,y=player.y,speed=-3,sprite=sprite,diag=true})
+			local sprite = info.sprites[3]
+			if (player.power > 2) sprite = info.sprites[4]
+			add(player.bullets, {x=player.x,y=player.y,speed=info.speed.diag1,sprite=sprite})
+			add(player.bullets, {x=player.x,y=player.y,speed=info.speed.diag2,sprite=sprite})
 		end
 		
 		timer_restart(player.timers.bullet)
 	end
+	-- Rotate
+	if (btnp(5)) rotate()
+end
+
+function update_bullets()
 	for bullet in all(player.bullets) do
-		if (bullet.diag) then
-			bullet.x += abs(bullet.speed) / 2
-			bullet.y += bullet.speed /2
-		else
-			bullet.x += bullet.speed
-		end
+		bullet.x += bullet.speed.x
+		bullet.y += bullet.speed.y
 		if (bullet.x < -8 or bullet.x > 128 or bullet.y < -8 or bullet.y > 128) del(player.bullets, bullet)
 	end
 end
@@ -111,7 +167,7 @@ function draw_player()
 		spr(bullet.sprite, bullet.x, bullet.y, 1, 1, false, (bullet.diag and bullet.speed > 0))
 	end
 	-- Player
-	spr(player.sprite, player.x, player.y)
+	if (player.show) spr(player.sprite, player.x, player.y)
 end
 
 -->8
@@ -197,18 +253,54 @@ end
 -- rotate
 
 function init_rotate()
-	rotate = {active=false}
-	rotate.player.sprt.base = {1,2,3}
-	rotate.player.sprt.rota = {7,8,9}
+	rotation = false
 end
 
 function rotate()
-	rotate.active=true
+	-- De/Active rotate mode
+	rotation = not rotation
+	-- Player animation
+	player.show = false
+	player.thruster.show = false
+	local sprites = {4,5,6}
+	if (not rotation) sprites = {6,5,4}
+	animate(sprites, 2, player.x, player.y, false, _rotate_player_animation)
+	-- Change animation sprites
+	player.thruster.sprites = cst.player.thruster.sprt.base
+	if (rotation) player.thruster.sprites = cst.player.thruster.sprt.rota
 end
 
-function rotate_player_sprt()
-	if (rotate.active) return rotate.player.sprt.rota
-	return rotate.player.sprt.base
+function rotate_player_info(btn)
+	if (btn == nil) then
+		if (rotation) return {sprite=cst.player.sprt.rota[1],offset={x=0,y=6}}
+		return {sprite=cst.player.sprt.base[1],offset={x=-6,y=0}}
+	end
+	if (btn == 0) then
+		if (rotation) return {sprite=cst.player.sprt.rota[2],offset={x=-1,y=6}}
+		return {sprite=cst.player.sprt.base[1],offset={x=-6,y=0}}
+	end
+	if (btn == 1) then
+		if (rotation) return {sprite=cst.player.sprt.rota[3],offset={x=1,y=6}}
+		return {sprite=cst.player.sprt.base[1],offset={x=-6,y=0}}
+	end
+	if (btn == 2) then
+		if (rotation) return {sprite=cst.player.sprt.rota[1],offset={x=0,y=6}}
+		return {sprite=cst.player.sprt.base[2],offset={x=-6,y=-1}}
+	end
+	if (btn == 3) then
+		if (rotation) return {sprite=cst.player.sprt.rota[1],offset={x=0,y=6}}
+		return {sprite=cst.player.sprt.base[3],offset={x=-6,y=1}}
+	end
+end
+
+function rotate_bullet_info()
+	if (rotation) return {sprites={52,53,54,55}, speed={base={x=0,y=-3},diag1={x=1.5,y=-1.5},diag2={x=-1.5,y=-1.5}}}
+	return {sprites={48,49,50,51}, speed={base={x=3,y=0},diag1={x=1.5,y=1.5},diag2={x=1.5,y=-1.5}}}
+end
+
+function _rotate_player_animation()
+	player.show = true
+	player.thruster.show = true
 end
 
 -->8
@@ -232,16 +324,12 @@ function update_timer()
 			end
 		end
 	end
-	-- Remove ended animation
-	for animation in all(animations) do
-		if (timer_is_end(animation.timer)) del(animations, animation)
-	end
 end
 
 function draw_timer()
 	-- Draw animations
 	for animation in all(animations) do
-		spr(animation.sprites[animation.index], animation.x, animation.y)
+		if (animation.show) spr(animation.sprites[animation.index], animation.x, animation.y)
 	end
 end
 
@@ -264,10 +352,10 @@ function timer_stop(timer)
 	del(timers, timer)
 end
 
-function animate(sprites, duration, x, y, loop)
-	local animation = {sprites=sprites,index=1,x=x,y=y}
+function animate(sprites, duration, x, y, loop, callback)
 	if (loop == nil) loop = true
-	animation.timer = timer(duration, loop, _animate, animation)
+	local animation = {sprites=sprites,index=1,x=x,y=y,loop=loop,callback=callback,show=true}
+	animation.timer = timer(duration, true, _animate, animation)
 	add(animations, animation)
 	return animation
 end
@@ -275,19 +363,26 @@ end
 function _animate(animation)
 	animation.index += 1
 	if (animation.index > #animation.sprites) then
-		animation.index = 1
+		if (animation.loop) then
+			animation.index = 1
+		else
+			-- Animation complete, remove and callback
+			if (animation.callback != nil) animation.callback()
+			timer_stop(animation.timer)
+			del(animations, animation)
+		end
 	end
 end
 
 __gfx__
-00000000000660000000000000066000006600000000000000005500000550000000550000550000000000000000000000000077770000000000009999000000
-00670000006d600000000000665555d000d60d000660d550000d550000d55d000000d5d00d5d00000000000000a0a0000000cccccccc00000000999799990000
-06700000665555d00006600000655f5506555f550d65f5506655ffd0005ff50000005f5005f500000000000000070000000cccccccccc00000099999a9999000
-0777777600655f55665d6000006555d566555f5506555fd06d55550066555566006655566555660000c0c00000a0a00000cccccccbcccc000099999999999900
-6777600000655f55006555d5665d6000006555d006655500065555666d5555d6006d55566555d60000070000000000000cccccccccccccc009997aa999aa9990
-67777000665555d000655f55000660000065550060065660066655d606566560000566500566500000c0c000000000000ccbbccccbbbccc0099999999aa79990
-06776000006d6000665555d0000000000666d60000066d60060066000060060000060060060060000000000000000000cccbbcccbbbbcccc9999999999977999
-000000000006600000066000000000000000660000600000000060000060060000060060060060000000000000000000cccbccbcbbcccbcc99aa79997a999999
+00000000000660000006600000000000006600000000000000005500000550000055000000005500000000000000000000000077770000000000009999000000
+00670000006d6000665555d00000000000d60d000660d550000d550000d55d000d5d00000000d5d00000000000a0a0000000cccccccc00000000999799990000
+06700000665555d000655f550006600006555f550d65f5506655ffd0005ff50005f5000000005f500000000000070000000cccccccccc00000099999a9999000
+0777777600655f55006555d5665d600066555f5506555fd06d55550066555566655566000066555600c0c00000a0a00000cccccccbcccc000099999999999900
+6777600000655f55665d6000006555d5006555d006655500065555666d5555d66555d600006d555600070000000000000cccccccccccccc009997aa999aa9990
+67777000665555d00006600000655f550065550060065660066655d606566560056650000005665000c0c000000000000ccbbccccbbbccc0099999999aa79990
+06776000006d600000000000665555d00666d60000066d60060066000060060006006000000600600000000000000000cccbbcccbbbbcccc9999999999977999
+000000000006600000000000000660000000660000600000000060000060060006006000000600600000000000000000cccbccbcbbcccbcc99aa79997a999999
 00000000000000000000000000000000000aa000000aa000000a9000000aa00000000000000000000000000000000000cbcbbcccccccbccc999a99799a999999
 00000000000000000000000000000000000a9000000a9000000990000009a00000000000000000000000000000000000cccbbcccbbcccccc99999a99999aa999
 0000000000000000000000000000000000099000000990000009800000099000000000000000000000000000000a00000cccbcccbbcbbbc00999999999997990
