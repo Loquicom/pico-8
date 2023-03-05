@@ -127,7 +127,7 @@ end
 
 function init_constant()
 	cst = {
-		version = "0.21",
+		version = "0.22",
 		player = {
 			speed = {
 				base = 2,
@@ -316,13 +316,9 @@ function init_player()
 		sprite = cst.player.sprt.base[1],
 		speed = cst.player.speed.base,
 		power = 0, -- 0 = simple, 1 = big, 2 = big + simple diag, 3 = big + big diag, 4+ = more speed and less cd ?
-		thruster = {
-			animation = animate(cst.player.thruster.sprt.base, cst.player.thruster.duration, 12, 64),
-			particles = {}
-		},
+		thruster = animate(cst.player.thruster.sprt.base, cst.player.thruster.duration, 12, 64),
 		timers = {
-			bullet = timer(cst.player.bullet.timer, false),
-			thruster = timer(cst.player.thruster.duration, true, _thruster_timer)
+			bullet = timer(cst.player.bullet.timer, false)
 		},
 		bullets = {}
 	}
@@ -333,16 +329,17 @@ function update_player()
 	move_player()
 	action_player()
 	update_bullets()
+	--Thruster particle
+	if (random(64) == 8) then
+		local info = rotate_thruster_info()
+		particle(player.x+info.offset.x, player.y+info.offset.y, random(8,4), 1, {x=info.x, y=info.y}, 8, nil, cst.player.thruster.duration)
+	end
 end
 
 function draw_player()
 	-- Bullets
 	for bullet in all(player.bullets) do
 		spr(bullet.sprite, bullet.x, bullet.y, 1, 1, false, bullet.inv)
-	end
-	-- Thruster particle
-	for particle in all(player.thruster.particles) do
-		pset(particle.x, particle.y, 8)
 	end
 	-- Player
 	if (player.show) spr(player.sprite, player.x, player.y)
@@ -356,12 +353,11 @@ function end_game()
 	timer(90, false, _end_game)
 	-- Death effect
 	explosion(player.x + 4, player.y + 4, {radius=4,duration=rnd(30)+60,number=18})
-	shake()	
+	shake()
+	sfx(6)
 	-- Remove player
 	player.show = false
-	player.thruster.animation.show = false
-	player.thruster.particles = {}
-	timer_stop(player.timers.thruster)
+	player.thruster.show = false
 	player.life = -1
 	player.x = 400
 	player.y = 400
@@ -408,8 +404,8 @@ function move_player()
 	if (player.y > border.down.cond) player.y = border.down.to
 	if (player.y < border.up.cond) player.y = border.up.to
 	-- Set thruster position
-	player.thruster.animation.x = player.x + info.offset.x
-	player.thruster.animation.y = player.y + info.offset.y
+	player.thruster.x = player.x + info.offset.x
+	player.thruster.y = player.y + info.offset.y
 end
 
 function action_player()
@@ -431,6 +427,7 @@ function action_player()
 			add(player.bullets, {x=player.x+info.offset.diag2.x, y=player.y+info.offset.diag2.y, speed=info.speed.diag2, sprite=sprite,inv=false})
 		end
 		timer_restart(player.timers.bullet)
+		sfx(4)
 	end
 	-- Rotate
 	if (btnp(4)) rotate()
@@ -451,17 +448,6 @@ function player_bullet_damage(bullet)
 end
 
 --- === Timers === ---
-
-function _thruster_timer()
-	local info = rotate_thruster_info()
-	for particle in all(player.thruster.particles) do
-		particle.x += info.x
-		particle.y += info.y
-		particle.time += 1
-		if (particle.time >= particle.duration) del(player.thruster.particles, particle)
-	end
-	if (random(8) == 8) add(player.thruster.particles, {x=player.x+info.offset.x, y=player.y+info.offset.y, duration=random(8,4), time=0})
-end
 
 function _delayed_explosion(params)
 	explosion(params.x, params.y)
@@ -488,6 +474,7 @@ function update_enemy()
 			player.score += enemy.type
 			enemies.kill[enemy.type] += 1
 			explosion(enemy.x+4, enemy.y+4)
+			sfx(2)
 			timer(5, false, spawn_collectible, {x=enemy.x, y=enemy.y})
 			timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
@@ -504,6 +491,12 @@ function update_enemy()
 			timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
 		collision_spaceship(enemy)
+		-- Shield particle
+		if ((enemy.shield.left or enemy.shield.down) and random(64) != 8) then
+			local info = {x=-1, y=0, offset={x=-4,y=random(7)}}
+			if (enemy.shield.down) info = {x=0, y=1, offset={x=random(7),y=11}}
+			particle(enemy.x+info.offset.x, enemy.y+info.offset.y, random(2,1), 1, {x=info.x, y=info.y}, 12, nil, 4)
+		end
 	end
 	-- Bullets
 	for bullet in all(enemies.bullets) do
@@ -540,7 +533,7 @@ function spawn_enemy(type, x, y)
 		sprite = cst.enemy[type].sprt,
 		show = true,
 		shield = {
-			left = false,
+			left = true,
 			down = false
 		}
 	}
@@ -558,7 +551,7 @@ end
 function manage_enemy()
 	-- Spawn first ennemy
 	if (enemies.spawn[1] == 0) then
-		spawn_enemy(1, 128, random(80,40))
+		spawn_enemy(3, 128, random(80,40))
 		enemies.spawn[1] += 1
 	-- When type3 is killed 5 time decread fire cd
 	elseif (enemies.kill[3] != 0 and enemies.kill[3] % 2 == 0) then
@@ -617,6 +610,7 @@ function _fire_enemy2(enemy)
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=-1,speedY=1,sprite=96})
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=1,speedY=-1,sprite=96})
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=-1,speedY=-1,sprite=98})
+	sfx(5)
 end
 
 function _fire_enemy3(enemy)
@@ -629,6 +623,7 @@ function _fire_enemy3(enemy)
 		if (player.x < enemy.x) x = -1 
 		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=x,speedY=0,sprite=80})
 	end
+	sfx(5)
 end
 
 function _respawn_enemy(type)
@@ -645,7 +640,9 @@ end
 
 function update_collectible()
 	for collectible in all(collectibles) do
-		collectible.x -= cst.collectible.speed -- TODO gestion rotation
+		local info = rotate_collectible_info()
+		collectible.x += info.x
+		collectible.y += info.y
 		-- Collision
 		collision_collectible(collectible)
 		-- Outside the map
@@ -699,6 +696,8 @@ function collision_player_fire(bullet)
 				-- Do damage
 				enemy.life -= player_bullet_damage(bullet)
 				timer(4, true, _blink_enemy, {cpt=0,enemy=enemy})
+			else
+				sfx(8)
 			end
 			del(player.bullets, bullet)
 		end
@@ -712,6 +711,7 @@ function collision_enemy_fire(bullet)
 		player.invincible = true
 		timer(4, true, _blink_player, {cpt=0,enemy=enemy})
 		del(enemies.bullets, bullet)
+		if (player.life > 0) sfx(2)
 	end
 end
 
@@ -733,6 +733,7 @@ function collision_collectible(collectible)
 		if (collectible.sprite == cst.collectible.sprt.speed) player.speed += .1
 		if (collectible.sprite == cst.collectible.sprt.score) player.score += 8
 		del(collectibles, collectible)
+		sfx(7)
 	end
 end
 
@@ -753,7 +754,7 @@ function _blink_player(params, timer)
 	if (params.cpt < 6) then
 		params.cpt += 1
 		player.show = not player.show
-		player.thruster.animation.show = not player.thruster.animation.show
+		player.thruster.show = not player.thruster.show
 	else
 		player.invincible = false
 		timer_stop(timer)
@@ -917,6 +918,7 @@ function blast()
 	bomb.y = player.y + 4
 	bomb.timer = timer(6, true, _bomb_color)
 	player.energy = 0
+	sfx(3)
 end
 
 function _bomb_color()
@@ -939,13 +941,13 @@ function rotate()
 	rotation = not rotation
 	-- Player animation
 	player.show = false
-	player.thruster.animation.show = false
+	player.thruster.show = false
 	local sprites = cst.player.rotate.sprt.fw
 	if (not rotation) sprites = cst.player.rotate.sprt.bw
 	animate(sprites, cst.player.rotate.duration, player.x, player.y, false, _rotate_player_animation)
 	-- Change animation sprites
-	player.thruster.animation.sprites = cst.player.thruster.sprt.base
-	if (rotation) player.thruster.animation.sprites = cst.player.thruster.sprt.rota
+	player.thruster.sprites = cst.player.thruster.sprt.base
+	if (rotation) player.thruster.sprites = cst.player.thruster.sprt.rota
 end
 
 function rotate_player_info(btn)
@@ -1047,7 +1049,7 @@ function rotate_enemy3_info(speed, x, y, diffX, diffY)
 	local move = 0
 	if (rotation) then
 		if (y < 8) move = speed
-		diffx = limit(diffX, speed)
+		diffX = limit(diffX, speed)
 		if (diffX < 0) sprite = cst.enemy[3].sprt + 3
 		if (diffX > 0) sprite = cst.enemy[3].sprt + 4
 		return {x=diffX, y=move, sprite=sprite}
@@ -1069,9 +1071,14 @@ function rotate_collision_player_info()
 	return {{x=0,y=2}, {x=7,y=5}}
 end
 
+function rotate_collectible_info()
+	if (rotation) return {x=0, y=1}
+	return {x=-1, y=0}
+end
+
 function _rotate_player_animation()
 	player.show = true
-	player.thruster.animation.show = true
+	player.thruster.show = true
 end
 
 -->8
@@ -1172,7 +1179,12 @@ function _shake(params, timer)
 	end
 end
 
-function particle(x, y, duration, radius, move, physics, colors)
+function particle(x, y, duration, radius, move, colors, physics, refresh)
+	-- Default value
+	if (type(colors) != "table") colors = {colors}
+	physics = physics or {}
+	refresh = refresh or 1
+	-- Create particle
 	local particle = {
 		time = 0,
 		duration = duration,
@@ -1185,7 +1197,7 @@ function particle(x, y, duration, radius, move, physics, colors)
 		colors = colors
 	}
 	add(particles, particle)
-	timer(1, true, _particle, particle)
+	timer(refresh, true, _particle, particle)
 end
 
 function _particle(particle, timer)
@@ -1197,8 +1209,10 @@ function _particle(particle, timer)
 	end
 
 	-- Set color depending on life of the particle
-	local divider = particle.duration / #particle.colors
-	particle.color = particle.colors[flr(particle.time/divider)+1]
+	if (#particle.colors > 1) then
+		local divider = particle.duration / #particle.colors
+		particle.color = particle.colors[flr(particle.time/divider)+1]
+	end
 
 	-- Set physics effect
 	if (particle.physics.gravity) particle.move.y += 0.5
@@ -1224,12 +1238,10 @@ function explosion(x, y, params)
 			params.duration,
 			params.radius,
 			{x=rnd(2)-1, y=rnd(2)-1},
-			{reduce=true},
-			{10,7,6,6,5}
+			{10,7,6,6,5},
+			{reduce=true}
 		)
 	end
-	-- Sound
-	sfx(2)
 end
 
 -->8
@@ -1457,6 +1469,12 @@ __label__
 11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
 
 __sfx__
-000100002812023120201201f1201d1201d1201e1202012021120221202312025120271202a1202b1200000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00020000175201c5201f5202252025520285202a5202b5202b5202a52029520265202552023520225201e52000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0001000016620196201c6201f62023620256202662026620236201f6201c6201962015620106200e6200e6200e6201162014620176201b6201b62019620186201662015620176201c6201f620000000000000000
+00030000201201b130251200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00040000260452b035300253000500703007030070300703007030070300703007030070300703007030070300703007030070300703007030070300703007030070300703007030070300703007030070300703
+000200000c363236650935520641063311b6210432116611023210f611013110a6110361104600036000260001600016000460003600026000160001600016000160004600036000260001600016000160001600
+00080000386303062025610206101c61019610176101561012610106100f6100d6100b6100a613086130761306613046130361303613006050060500605006050060500605006050060500605006050060500605
+000100002b52329543265532555323551215511f5511c5511955118551165511455113541105410d5310b52108521075210551103511025110151102400023000130003400024000140001400024000240001400
+000100003b32039320363203472032720307202e7202b720297202672023720235000b20007200062000520003200022000120001200000000000000000000000000000000000000000000000000000000000000
+001000001c1431c1331c1231c1131b1031a1030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0007000023725287252d3021e105370021c0051330213302133021330213302133021330213302133021330213302133021330213302133021330213302133021320207002070022b0001f0001f0021f0021f002
+000800000c32300300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300
