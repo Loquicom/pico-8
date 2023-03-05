@@ -34,6 +34,7 @@ function make_player()
 	player.speed = 2
 	player.thruster = animate({16,17,18,19,32,33,34,35}, 8, player.x-6, player.y)
 	player.bullets = {}
+	player.timers = {bullet=timer(15, false, nil)}
 end
 
 function update_player()
@@ -60,7 +61,7 @@ function move_player()
 		thrusterOffset = 1
 	end
 	-- Adapt diagonal speed
-	if (x != 0 & y != 0) then
+	if (x != 0 and y != 0) then
 		x /= 2
 		y /= 2
 	end
@@ -77,8 +78,9 @@ function move_player()
 end
 
 function update_bullets()
-	if (btnp(4)) then
+	if (btn(4) and timer_is_end(player.timers.bullet)) then
 		add(player.bullets, {x=player.x,y=player.y,speed=3,sprite=49})
+		timer_restart(player.timers.bullet)
 	end
 	for bullet in all(player.bullets) do
 		bullet.x += bullet.speed
@@ -122,7 +124,7 @@ function update_ground()
 		if (type == 4) planet.sprite = 46
 		planet.visible = true
 		planet.x = 200
-		planet.y = flr(rnd(127))
+		planet.y = flr(rnd(111))
 	end
 	if (planet.visible) then
 		if (planet.x < -100) planet.visible = false
@@ -175,15 +177,28 @@ function draw_foreground()
 end
 
 -->8
--- utils
+-- time utils
 
 function init_timer()
 	time = 0
+	timers = {}
 	animations = {}
 end
 
 function update_timer()
 	time = (time + 1) % 30
+	-- Execute timer
+	for timer in all(timers) do
+		timer.time += 1
+		if (timer.time >= timer.duration) then
+			if (timer.callback != nil) timer.callback()
+			if (timer.loop) then
+				timer.time = 0
+			else
+				del(timers, timer)
+			end
+		end
+	end
 	-- Manage animation
 	for animation in all(animations) do
 		if (animation.time >= animation.duration * animation.index) then
@@ -208,6 +223,25 @@ function animate(sprites, duration, x, y)
 	local animation = {sprites=sprites,duration=duration,index=1,time=0,x=x,y=y}
 	add(animations, animation)
 	return animation
+end
+
+function timer(duration, loop, callback)
+	local timer = {time=0,duration=duration,loop=loop,callback=callback}
+	add(timers, timer)
+	return timer
+end
+
+function timer_is_end(timer)
+	return (timer.time >= timer.duration)
+end
+
+function timer_restart(timer)
+	timer.time = 0
+	add(timers, timer)
+end
+
+function timer_stop(timer)
+	del(timers, timer)
 end
 
 __gfx__
@@ -236,10 +270,10 @@ __gfx__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000077777767777677778888888880008888222d2222d22eee22
 000000000000000000000000000000000000000000000000000000000000000000000000000000007777777767777677888888888808888822dd222dd2eee222
 0bbbb000000bb000000bb00000bbb000000000000000000000000000000000000000000000000000777767777777777788888888888888882dd222d22eee2dd2
-b7777b000bb77b0000b7b0000b777b00000000000000000000000000000000000000000000000000777777777767777788888888888888882dd22222eee2dd22
-0bbbb000b7777b000b7b000000b77b00000000000000000000000000000000000000000000000000076777777777677008888888888888800222222eee2dd220
-000000000bb77b00b7b000000b7b7b0000000000000000000000000000000000000000000000000007777677677777700888888888888880022222eee2222220
-00000000000bb000bb000000b7b0b000000000000000000000000000000000000000000000000000007777777777770000888888888888000e22eeee22222200
+b7777b000bb77b0000b7b0000bb77b00000000000000000000000000000000000000000000000000777777777767777788888888888888882dd22222eee2dd22
+0bbbb000b7777b000b7b00000b777b00000000000000000000000000000000000000000000000000076777777777677008888888888888800222222eee2dd220
+000000000bb77b00b7b000000b77bb0000000000000000000000000000000000000000000000000007777677677777700888888888888880022222eee2222220
+00000000000bb000bb000000b7bbb000000000000000000000000000000000000000000000000000007777777777770000888888888888000e22eeee22222200
 0000000000000000000000000b000000000000000000000000000000000000000000000000000000000777767767700000088888888880000eeeeeedd2222000
 000000000000000000000000000000000000000000000000000000000000000000000000000000000000777777770000000088888888000000eee2dd22220000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000777700000000000088880000000000002222000000
