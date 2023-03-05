@@ -6,6 +6,7 @@ __lua__
 --gameloop
 
 function _init()
+	cartdata("sp8ce-em-up")
 	init_constant()
 	init_ground()
 	set_title_mode()
@@ -40,7 +41,6 @@ function draw_title()
 	draw_foreground()
 	-- Title specific
 	draw_menu()
-	draw_credit()
 end
 
 --- === Game === ---
@@ -127,7 +127,7 @@ end
 
 function init_constant()
 	cst = {
-		version = "0.20.0",
+		version = "0.21",
 		player = {
 			speed = {
 				base = 2,
@@ -207,7 +207,8 @@ function init_constant()
 				life = 40,
 				energy = 41,
 				power = 56,
-				speed = 57
+				speed = 57,
+				score = 115
 			}
 		}
 	}
@@ -253,6 +254,8 @@ function update_menu()
 end
 
 function draw_menu()
+	-- Score
+	print("bEST SCORE:"..dget(menu.cursor), 2, 2, 7)
 	-- Logo
 	spr(73, 20, 36) -- S
 	spr(74, 28, 36) -- P
@@ -275,14 +278,12 @@ function draw_menu()
 	-- Selector
 	spr(0, 28, 58 + 10 * (menu.cursor - 1))
 	-- Helper
-	print(menu.helper[menu.cursor], 8, 98, 6)
-	print("pRESS ❎ TO SELECT", 28, 108, 6)
-end
-
-function draw_credit()
+	print(menu.helper[menu.cursor], 8, 94, 6)
+	print("pRESS ❎ TO SELECT", 28, 104, 6)
+	-- Credit & version
 	spr(112, 48, 119)
 	print("bY lOQUICOM", 2, 120, 7)
-	print("v:"..cst.version, 96, 120, 7)
+	print("v:"..cst.version, 104, 120, 7)
 end
 
 --- === Functions === ---
@@ -309,7 +310,7 @@ function init_player()
 		y = 64,
 		score = 0,
 		life = cst.player.life,
-		energy = cst.player.energy,
+		energy = cst.player.energy - 2,
 		bomb = false,
 		invincible = false,
 		sprite = cst.player.sprt.base[1],
@@ -364,6 +365,8 @@ function end_game()
 	player.life = -1
 	player.x = 400
 	player.y = 400
+	-- Save best score
+	if (dget(2) < player.score) dset(2, flr(player.score))
 end
 
 function move_player()
@@ -642,11 +645,11 @@ end
 
 function update_collectible()
 	for collectible in all(collectibles) do
-		collectible.x -= cst.collectible.speed
+		collectible.x -= cst.collectible.speed -- TODO gestion rotation
 		-- Collision
 		collision_collectible(collectible)
 		-- Outside the map
-		if (collectible.x < -8 or collectible.y > 130) del(collectibles, collectible)
+		if (collectible.x < -8 or collectible.y > 130) despawn_collectible(collectible)
 	end
 end
 
@@ -665,14 +668,24 @@ function spawn_collectible(params)
 		-- Player is close to the death only health
 		if (random(2,1) == 1 ) add(collectibles, {sprite=cst.collectible.sprt.life, x=params.x, y=params.y})
 	else
-		-- Health and power up
+		-- Health, power up and score
 		local available = {}
 		if (player.life < cst.player.life) add(available, cst.collectible.sprt.life)
 		if (player.energy < cst.player.energy) add(available, cst.collectible.sprt.energy)
 		if (player.power < cst.player.power) add(available, cst.collectible.sprt.power)
 		if (player.speed < cst.player.speed.max) add(available, cst.collectible.sprt.speed)
-		if (#available > 0) add(collectibles, {sprite=rnd(available), x=params.x, y=params.y})
+		if (#available < 3) add(available, cst.collectible.sprt.score)
+		add(collectibles, {sprite=rnd(available), x=params.x, y=params.y})
 	end
+end
+
+function despawn_collectible(collectible)
+	if (collectible.sprite == cst.collectible.sprt.life) player.score += cst.player.life - player.life
+	if (collectible.sprite == cst.collectible.sprt.energy) player.energy += cst.player.energy - player.energy
+	if (collectible.sprite == cst.collectible.sprt.power) player.score += cst.player.power - player.power
+	if (collectible.sprite == cst.collectible.sprt.speed) player.score += cst.player.speed.max - player.speed
+	if (collectible.sprite == cst.collectible.sprt.score) player.score += 1
+	del(collectibles, collectible)
 end
 
 -->8
@@ -718,6 +731,7 @@ function collision_collectible(collectible)
 		if (collectible.sprite == cst.collectible.sprt.energy) player.energy += 1
 		if (collectible.sprite == cst.collectible.sprt.power) player.power += 1
 		if (collectible.sprite == cst.collectible.sprt.speed) player.speed += .1
+		if (collectible.sprite == cst.collectible.sprt.score) player.score += 8
 		del(collectibles, collectible)
 	end
 end
@@ -775,7 +789,7 @@ function draw_ui()
 		x+=8
 	end
 	-- Score
-	print("score:"..player.score, 2, 2, 7)
+	print("score:"..flr(player.score), 2, 2, 7)
 end
 
 -->8
@@ -1214,6 +1228,8 @@ function explosion(x, y, params)
 			{10,7,6,6,5}
 		)
 	end
+	-- Sound
+	sfx(2)
 end
 
 -->8
@@ -1303,12 +1319,12 @@ b777b000b7777b00b7b000000b777b000b77b0000b77b00000b7b0000b777b0006b77b6006cccc60
 00000000088000000000000000008800056666500566665000000000056650000005665000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000005555000055550000000000005500000000550000000000000000000000000000000000000000000000000000000000
 0000000000000c500050050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000c5055d00d5500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5aaa00000000c6d5cc6666cc00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-500aaa000000c60000cccc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-50000aaa0000c6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-555555550000c6d50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000c500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000c5055d00d5500666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+5aaa00000000c6d5cc6666cc06366360000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+500aaa000000c60000cccc0006633660000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+50000aaa0000c6000000000006633660000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+555555550000c6d50000000006366360000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000c500000000000666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000c500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __label__
 11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
@@ -1443,3 +1459,4 @@ __label__
 __sfx__
 000100002812023120201201f1201d1201d1201e1202012021120221202312025120271202a1202b1200000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00020000175201c5201f5202252025520285202a5202b5202b5202a52029520265202552023520225201e52000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0001000016620196201c6201f62023620256202662026620236201f6201c6201962015620106200e6200e6200e6201162014620176201b6201b62019620186201662015620176201c6201f620000000000000000
