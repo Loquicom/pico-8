@@ -34,7 +34,7 @@ function make_player()
 	player.speed = 2
 	player.thruster = animate({16,17,18,19,32,33,34,35}, 8, player.x-6, player.y)
 	player.bullets = {}
-	player.timers = {bullet=timer(15, false, nil)}
+	player.timers = {bullet=timer(15, false)}
 end
 
 function update_player()
@@ -180,18 +180,16 @@ end
 -- time utils
 
 function init_timer()
-	time = 0
 	timers = {}
 	animations = {}
 end
 
 function update_timer()
-	time = (time + 1) % 30
 	-- Execute timer
 	for timer in all(timers) do
 		timer.time += 1
 		if (timer.time >= timer.duration) then
-			if (timer.callback != nil) timer.callback()
+			if (timer.callback != nil) timer.callback(timer.param)
 			if (timer.loop) then
 				timer.time = 0
 			else
@@ -199,34 +197,17 @@ function update_timer()
 			end
 		end
 	end
-	-- Manage animation
-	for animation in all(animations) do
-		if (animation.time >= animation.duration * animation.index) then
-			animation.index += 1
-			if (animation.index > #animation.sprites) then
-				animation.index = 1
-				animation.time = 0
-			end
-		end
-		animation.time += 1
-	end
 end
 
 function draw_timer()
-	-- Draw animation
+	-- Draw animations
 	for animation in all(animations) do
 		spr(animation.sprites[animation.index], animation.x, animation.y)
 	end
 end
 
-function animate(sprites, duration, x, y)
-	local animation = {sprites=sprites,duration=duration,index=1,time=0,x=x,y=y}
-	add(animations, animation)
-	return animation
-end
-
-function timer(duration, loop, callback)
-	local timer = {time=0,duration=duration,loop=loop,callback=callback}
+function timer(duration, loop, callback, param)
+	local timer = {time=0,duration=duration,loop=loop,callback=callback, param=param}
 	add(timers, timer)
 	return timer
 end
@@ -242,6 +223,20 @@ end
 
 function timer_stop(timer)
 	del(timers, timer)
+end
+
+function animate(sprites, duration, x, y)
+	local animation = {sprites=sprites,index=1,x=x,y=y,}
+	animation.timer = timer(duration, true, _animate, animation)
+	add(animations, animation)
+	return animation
+end
+
+function _animate(animation)
+	animation.index += 1
+	if (animation.index > #animation.sprites) then
+		animation.index = 1
+	end
 end
 
 __gfx__
