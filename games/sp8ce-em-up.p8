@@ -6,6 +6,12 @@ __lua__
 --gameloop
 
 function _init()
+	init_game()
+	_update = update_game
+	_draw = draw_game
+end
+
+function init_game()
 	init_constant()
 	init_timer()
 	init_rotate()
@@ -13,20 +19,19 @@ function _init()
 	init_player()
 	init_enemy()
 	init_bomb()
-	--spawn_enemy(2, 120, 64)
-	spawn_enemy(3, 120, 64)
+	spawn_enemy(1, 120, 64)
 end
 
-function _update()
+function update_game()
 	update_timer()
 	update_ground()
+	update_bomb()
 	update_enemy()
 	update_player()
-	update_bomb()
 end
 
-function _draw()
-	cls(1) --clear screen
+function draw_game()
+	cls(1)
 	draw_background()
 	draw_timer()
 	draw_enemy()
@@ -34,6 +39,25 @@ function _draw()
 	draw_foreground()
 	draw_bomb()
 	draw_ui()
+end
+
+function update_end()
+	update_timer()
+	update_ground()
+	if (btnp(5)) then
+		init_game()
+		_update = update_game
+		_draw = draw_game
+	end
+end
+
+function draw_end()
+	cls(1)
+	draw_background()
+	draw_foreground()
+	print("game over",44,44,7)
+ 	print("your score:"..player.score,34,54,7)
+  	print("press ❎ to play again!",18,72,6)
 end
 
 -->8
@@ -121,6 +145,7 @@ function init_player()
 		life = cst.player.life,
 		energy = 0,
 		bomb = false,
+		invincible = false,
 		sprite = cst.player.sprt.base[1],
 		speed = cst.player.speed,
 		power = 0, -- 0 = simple, 1 = big, 2 = big + simple diag, 3 = big + big diag, 4+ = more speed and less cd ?
@@ -137,6 +162,15 @@ function init_player()
 end
 
 function update_player()
+	if (player.life < 1) then
+		player.show = false
+		player.thruster.animation.show = false
+		timer_stop(player.timers.thruster)
+		shake()
+		_update = update_end
+		_draw = draw_end
+		return
+	end
 	move_player()
 	action_player()
 	update_bullets()
@@ -253,7 +287,7 @@ end
 --ennemy
 
 function init_enemy()
-	enemies = {entities={}, bullets={}}
+	enemies = {entities={}, bullets={}, spawn = {0,0,0}}
 end
 
 function update_enemy()
@@ -262,11 +296,22 @@ function update_enemy()
 		if (enemy.life < 1) then 
 			del(enemies.entities, enemy)
 			if (enemy.fire != nil) timer_stop(enemy.fire)
+			shake(0.6)
+			player.score += enemy.type
+			timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
 		-- Move
 		if (enemy.type == 1) move_enemy_type1(enemy)
 		if (enemy.type == 2) move_enemy_type2(enemy)
 		if (enemy.type == 3) move_enemy_type3(enemy)
+		if (enemy.x < -8 or enemy.y > 130) then
+			-- Outside the map
+			del(enemies.entities, enemy)
+			if (enemy.fire != nil) timer_stop(enemy.fire)
+			player.score -= enemy.type*2
+			if (player.score < 0) player.score = 0
+			timer(random(150,30), false, _respawn_enemy, enemy.type)
+		end
 	end
 	-- Bullets
 	for bullet in all(enemies.bullets) do
@@ -316,7 +361,7 @@ function move_enemy_type2(enemy)
 end
 
 function move_enemy_type3(enemy)
-	local info = rotate_enemy3_info(enemy.speed, limit(player.x - enemy.x, enemy.speed), limit(player.y - enemy.y, enemy.speed))
+	local info = rotate_enemy3_info(enemy.speed, enemy.x, enemy.y, limit(player.x - enemy.x, enemy.speed), limit(player.y - enemy.y, enemy.speed))
 	enemy.sprite = info.sprite
 	enemy.x += info.x
 	enemy.y += info.y
@@ -341,6 +386,11 @@ function _fire_enemy3(enemy)
 	end
 end
 
+function _respawn_enemy(type)
+	local spawn = rotate_enemy_spawn(134, random(120))
+	spawn_enemy(type, spawn.x, spawn.y)
+end
+
 -->8
 --collectible
 
@@ -359,10 +409,16 @@ end
 
 function collison_enemy_fire(bullet)
 	local info = rotate_collison_player_info()
-	if (collison_rectangle({{x=bullet.x+1, y=bullet.y},{x=bullet.x+4,y=bullet.y+4}}, {{x=player.x+info[1].x,y=player.y+info[1].y},{x=player.x+info[2].x,y=player.y+info[2].y}})) then
+	if (not player.invincible and collison_rectangle({{x=bullet.x+1, y=bullet.y},{x=bullet.x+4,y=bullet.y+4}}, {{x=player.x+info[1].x,y=player.y+info[1].y},{x=player.x+info[2].x,y=player.y+info[2].y}})) then
 		player.life -= 1
+		player.invincible = true
+		timer(4, true, _blink_player, {cpt=0,enemy=enemy})
 		del(enemies.bullets, bullet)
 	end
+end
+
+function collision_spaceship()
+
 end
 
 function collison_collectible()
@@ -378,6 +434,17 @@ function _blink_enemy(params, timer)
 		params.cpt += 1
 		params.enemy.show = not params.enemy.show
 	else
+		timer_stop(timer)
+	end
+end
+
+function _blink_player(params, timer)
+	if (params.cpt < 6) then
+		params.cpt += 1
+		player.show = not player.show
+		player.thruster.animation.show = not player.thruster.animation.show
+	else
+		player.invincible = false
 		timer_stop(timer)
 	end
 end
@@ -652,16 +719,24 @@ function rotate_enemy2_info(speed)
 	return {x=-speed, y=0}
 end
 
-function rotate_enemy3_info(speed, diffX, diffY)
+function rotate_enemy3_info(speed, x, y, diffX, diffY)
 	local sprite = cst.enemy[3].sprt
+	local move = 0
 	if (rotation) then
+		if (y < 8) move = speed
 		if (diffX < 0) sprite = cst.enemy[3].sprt + 3
 		if (diffX > 0) sprite = cst.enemy[3].sprt + 4
-		return {x=diffX, y=0, sprite=sprite}
+		return {x=diffX, y=move, sprite=sprite}
 	end
+	if (x > 112) move = -speed
 	if (diffY < 0) sprite = cst.enemy[3].sprt + 2
 	if (diffY > 0) sprite = cst.enemy[3].sprt + 1
-	return {x=0, y=diffY, sprite=sprite}
+	return {x=move, y=diffY, sprite=sprite}
+end
+
+function rotate_enemy_spawn(baseX, baseY)
+	if (rotation) return {x=baseY, y=-baseX+128}
+	return {x=baseX, y=baseY}
 end
 
 function rotate_collison_player_info()
@@ -747,6 +822,20 @@ function _animate(animation)
 	end
 end
 
+function shake(intensity)
+	if (intensity == nil) intensity = 1
+	timer(1, true, _shake, {intensity=intensity})
+end
+
+function _shake(params, timer)
+	camera(rnd(params.intensity)-params.intensity/2, rnd(params.intensity)-params.intensity/2)
+	params.intensity *= 0.9
+	if (params.intensity < .2) then
+		camera()
+		timer_stop(timer)
+	end
+end
+
 -->8
 --utils
 
@@ -769,20 +858,6 @@ function contain(tab, val)
 		if (v == val) return true
 	end
 	return false
-end
-
-function shake(intensity)
-	if (intensity == nil) intensity = 1
-	timer(1, true, _shake, {intensity=intensity})
-end
-
-function _shake(params, timer)
-	camera(rnd(params.intensity)-params.intensity/2, rnd(params.intensity)-params.intensity/2)
-	params.intensity *= 0.9
-	if (params.intensity < .2) then
-		camera()
-		timer_stop(timer)
-	end
 end
 
 __gfx__
