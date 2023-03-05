@@ -117,7 +117,7 @@ function draw_end()
 	draw_foreground()
 	-- End specific
 	print("game over",44,44,7)
- 	print("your score:"..player.score,34,54,7)
+ 	print("your score:"..flr(player.score),34,54,7)
   	print("press ❎ to play again!",18,72,6)
 	print("press 🅾️ to return to the menu",5,80,6)
 end
@@ -127,7 +127,7 @@ end
 
 function init_constant()
 	cst = {
-		version = "0.23",
+		version = "0.24",
 		player = {
 			speed = {
 				base = 2,
@@ -533,7 +533,7 @@ function spawn_enemy(type, x, y)
 		sprite = cst.enemy[type].sprt,
 		show = true,
 		shield = {
-			left = true,
+			left = false,
 			down = false
 		}
 	}
@@ -551,7 +551,7 @@ end
 function manage_enemy()
 	-- Spawn first ennemy
 	if (enemies.spawn[1] == 0) then
-		spawn_enemy(3, 128, random(80,40))
+		spawn_enemy(1, 128, random(80,40))
 		enemies.spawn[1] += 1
 	-- When type3 is killed 5 time decread fire cd
 	elseif (enemies.kill[3] != 0 and enemies.kill[3] % 2 == 0) then
@@ -678,7 +678,7 @@ end
 
 function despawn_collectible(collectible)
 	if (collectible.sprite == cst.collectible.sprt.life) player.score += cst.player.life - player.life
-	if (collectible.sprite == cst.collectible.sprt.energy) player.energy += cst.player.energy - player.energy
+	if (collectible.sprite == cst.collectible.sprt.energy) player.score += cst.player.energy - player.energy
 	if (collectible.sprite == cst.collectible.sprt.power) player.score += cst.player.power - player.power
 	if (collectible.sprite == cst.collectible.sprt.speed) player.score += cst.player.speed.max - player.speed
 	if (collectible.sprite == cst.collectible.sprt.score) player.score += 1
