@@ -26,7 +26,7 @@ function init_title()
 end
 
 function update_title()
-	-- Update timer ground animation
+	-- Update timer and ground animation
 	update_timer()
 	update_ground()
 	-- Title specific
@@ -126,91 +126,79 @@ end
 --constant
 
 function init_constant()
-	cst = {
-		version = "0.25",
-		player = {
-			speed = {
-				base = 2,
-				max = 3,
-			},
-			life = 3,
-			energy = 5,
-			power = 3,
-			sprt = {
-				base = {1,2,3},
-				rota = {7,8,9}
-			},
-			thruster = {
-				sprt = {
-					base = {16,17,18,19,32,33,34,35},
-					rota = {20,21,22,23,36,37,38,39}
-				},
-				duration = 8
-			},
-			bullet = {
-				timer = 15,
-				speed = 3,
-				sprt = {
-					base = {48,49,50,51},
-					rota = {52,53,54,55}
-				}
-			},
-			rotate = {
-				sprt = {
-					fw = {4,5,6},
-					bw = {6,5,4}
-				},
-				duration = 2 
-			}
-		},
-		ground = {
-			planet = {
-				speed = 0.6,
-				sprt = {12,14,42,44,46}
-			},
-			star = {
-				min = 4,
-				max = 8,
-				speed = 0.2,
-				sprt = {10,11,26,27}
-			},
-			light = {
-				min = 18,
-				max = 28,
-				speed = 1.2
-			}
-		},
-		enemy = {
-			{
-				sprt = 68,
-				speed = 1,
-				life = 1
-			},
-			{
-				sprt = 84,
-				speed = 0.5,
-				life = 2,
-				spawn = 8 -- After x enemy of previous type the first enemy of this type spawn
-			},
-			{
-				sprt = 100,
-				speed = 1.5,
-				life = 3,
-				spawn = 4 -- After x enemy of previous type the first enemy of this type spawn
-			}
-		},
-		collectible = {
-			luck = 8, -- More luck => less spawn
-			max = 3, -- Maximum collectible on the screen at the same time
+	cst_version = "0.26"
+	-- Player
+	cst_player_life = 3
+	cst_player_energy = 5
+	cst_player_power = 3
+	cst_player_speed_base = 2
+	cst_player_speed_max = 3
+	cst_player_sprt_base = {1,2,3}
+	cst_player_sprt_rota = {7,8,9}
+	cst_player_thruster_duration = 8
+	cst_player_thruster_sprt_base = {16,17,18,19,32,33,34,35}
+	cst_player_thruster_sprt_rota = {20,21,22,23,36,37,38,39}
+	cst_player_bullet_timer = 15
+	cst_player_bullet_speed = 3
+	cst_player_bullet_sprt_base = {48,49,50,51}
+	cst_player_bullet_sprt_rota = {52,53,54,55}
+	cst_player_animation_rotate_duration = 2
+	cst_player_animation_rotate_sprt_fw = {4,5,6}
+	cst_player_animation_rotate_sprt_bw = {6,5,4}
+	-- Ground
+	cst_ground_planet_speed = 0.6
+	cst_ground_planet_sprt = {12,14,42,44,46}
+	cst_ground_star_min = 4
+	cst_ground_star_max = 8
+	cst_ground_star_speed = 0.2
+	cst_ground_star_sprt = {10,11,26,27}
+	cst_ground_light_min = 18
+	cst_ground_light_max = 28
+	cst_ground_light_speed = 1.2
+	-- Enemy
+	cst_enemy = {
+		{
+			sprt = 68,
 			speed = 1,
-			sprt = {
-				life = 40,
-				energy = 41,
-				power = 56,
-				speed = 57,
-				score = 115
-			}
+			life = 1
+		},
+		{
+			sprt = 84,
+			speed = 0.5,
+			life = 2,
+			spawn = 8 -- After x enemy of previous type the first enemy of this type spawn
+		},
+		{
+			sprt = 100,
+			speed = 1.5,
+			life = 3,
+			spawn = 4 -- After x enemy of previous type the first enemy of this type spawn
 		}
+	}
+	-- Collectible
+	cst_collectible_luck = 8 -- More luck => less spawn
+	cst_collectible_max = 3 -- Maximum collectible on the screen at the same time
+	cst_collectible_speed = 1
+	cst_collectible_sprt_life = 40
+	cst_collectible_sprt_energy = 41
+	cst_collectible_sprt_power = 56
+	cst_collectible_sprt_speed = 57
+	cst_collectible_sprt_score = 115
+	-- Menu
+	cst_menu_label = {
+		"sCRIPTED MODE",
+		"iNFINITE MODE",
+		""
+	}
+	cst_menu_helper = {
+		"a STORY MODE WITHOUT STORY 😐",
+		"eNDLESS ENEMIES, ENDLESS FUN",
+		"exploooosionn !!!!!!!!!!!!!!"
+	}
+	cst_menu_action = {
+		start_scripted_game,
+		start_infinite_game,
+		nothing
 	}
 end
 
@@ -218,47 +206,30 @@ end
 --title
 
 function init_menu()
-	menu = {
-		cursor = 2,
-		label = {
-			"sCRIPTED MODE",
-			"iNFINITE MODE",
-			""
-		},
-		helper = {
-			"a STORY MODE WITHOUT STORY 😐",
-			"eNDLESS ENEMIES, ENDLESS FUN",
-			"exploooosionn !!!!!!!!!!!!!!"
-		},
-		action = {
-			start_scripted_game,
-			start_infinite_game,
-			nothing
-		}
-	}
+	menu_cursor = 2
 	explosion_counter = 0
 end
 
 function update_menu()
- 	if (btnp(2) and menu.cursor > 1) then
-		menu.cursor -= 1
+ 	if (btnp(2) and menu_cursor > 1) then
+		menu_cursor -= 1
 		explosion_counter = 0
 		sfx(0)
 	end
-	if (btnp(3) and menu.cursor < #menu.label) then
-		menu.cursor += 1
+	if (btnp(3) and menu_cursor < #cst_menu_label) then
+		menu_cursor += 1
 		explosion_counter = 0
 		sfx(0)
 	end
 	if (btnp(4) or btnp(5)) then
-		menu.action[menu.cursor]()
+		cst_menu_action[menu_cursor]()
 		sfx(1)
 	end
 end
 
 function draw_menu()
 	-- Score
-	print("bEST SCORE:"..dget(menu.cursor), 2, 2, 7)
+	print("bEST SCORE:"..dget(menu_cursor), 2, 2, 7)
 	-- Logo
 	spr(73, 20, 36) -- S
 	spr(74, 28, 36) -- P
@@ -272,31 +243,33 @@ function draw_menu()
 	spr(74, 96, 36) -- P
 	-- Menu
 	local y = 58
-	for i=1,#menu.label do
+	for i=1,#cst_menu_label do
 		local color = 13
-		if (i == menu.cursor) color = 7
-		print(menu.label[i], 38, y, color)
+		if (i == menu_cursor) color = 7
+		print(cst_menu_label[i], 38, y, color)
 		y += 10
 	end
 	-- Selector
-	spr(0, 28, 58 + 10 * (menu.cursor - 1))
+	spr(0, 28, 58 + 10 * (menu_cursor - 1))
 	-- Helper
-	print(menu.helper[menu.cursor], 8, 94, 6)
+	print(cst_menu_helper[menu_cursor], 8, 94, 6)
 	print("pRESS ❎ TO SELECT", 28, 104, 6)
 	-- Credit & version
 	spr(112, 48, 119)
 	print("bY lOQUICOM", 2, 120, 7)
-	print("v:"..cst.version, 104, 120, 7)
+	print("v:"..cst_version, 104, 120, 7)
 end
 
 --- === Functions === ---
 
 function start_scripted_game()
-
+	set_game_mode()
+	set_enemy_manager("scripted")
 end
 
 function start_infinite_game()
 	set_game_mode()
+	set_enemy_manager("infinite")
 end
 
 function nothing()
@@ -314,16 +287,16 @@ function init_player()
 		x = 18,
 		y = 64,
 		score = 0,
-		life = cst.player.life,
-		energy = cst.player.energy - 2,
+		life = cst_player_life,
+		energy = cst_player_energy - 2,
 		bomb = false,
 		invincible = false,
-		sprite = cst.player.sprt.base[1],
-		speed = cst.player.speed.base,
+		sprite = cst_player_sprt_base[1],
+		speed = cst_player_speed_base,
 		power = 0, -- 0 = simple, 1 = big, 2 = big + simple diag, 3 = big + big diag, 4+ = more speed and less cd ?
-		thruster = animate(cst.player.thruster.sprt.base, cst.player.thruster.duration, 12, 64),
+		thruster = animate(cst_player_thruster_sprt_base, cst_player_thruster_duration, 12, 64),
 		timers = {
-			bullet = timer(cst.player.bullet.timer, false)
+			bullet = timer(cst_player_bullet_timer, false)
 		},
 		bullets = {}
 	}
@@ -337,7 +310,7 @@ function update_player()
 	--Thruster particle
 	if (random(64) == 8) then
 		local info = rotate_thruster_info()
-		particle(player.x+info.offset.x, player.y+info.offset.y, random(8,4), 1, {x=info.x, y=info.y}, 8, nil, cst.player.thruster.duration)
+		particle(player.x+info.offset.x, player.y+info.offset.y, random(8,4), 1, {x=info.x, y=info.y}, 8, nil, cst_player_thruster_duration)
 	end
 end
 
@@ -417,7 +390,7 @@ function action_player()
 	-- Do nothing if player is hide
 	if (not player.show) return
 	-- Bomb
-	if (player.energy >= cst.player.energy and btn(4) and btn(5)) return blast() -- Return only for stop
+	if (player.energy >= cst_player_energy and btn(4) and btn(5)) return blast() -- Return only for stop
 	-- Bullets
 	if (btn(5) and timer_is_end(player.timers.bullet) and not btn(4)) then
 		local info = rotate_bullet_info()
@@ -432,7 +405,7 @@ function action_player()
 			add(player.bullets, {x=player.x+info.offset.diag2.x, y=player.y+info.offset.diag2.y, speed=info.speed.diag2, sprite=sprite,inv=false})
 		end
 		timer_restart(player.timers.bullet)
-		sfx(4)
+		sfx(5)
 	end
 	-- Rotate
 	if (btnp(4)) rotate()
@@ -448,7 +421,7 @@ function update_bullets()
 end
 
 function player_bullet_damage(bullet)
-	if (contain({cst.player.bullet.sprt.base[2], cst.player.bullet.sprt.base[4], cst.player.bullet.sprt.rota[2], cst.player.bullet.sprt.rota[4]}, bullet.sprite)) return 2
+	if (contain({cst_player_bullet_sprt_base[2], cst_player_bullet_sprt_base[4], cst_player_bullet_sprt_rota[2], cst_player_bullet_sprt_rota[4]}, bullet.sprite)) return 2
 	return 1
 end
 
@@ -459,6 +432,8 @@ function _delayed_explosion(params)
 end
 
 function _end_game()
+	init_timer()
+	init_enemy()
 	set_end_mode()
 end
 
@@ -466,7 +441,9 @@ end
 --ennemy
 
 function init_enemy()
+	local manager = enemy_manager or manage_enemy_infinite
 	enemies = {entities={}, bullets={}, spawn = {0,0,0}, kill = {0,0,0}}
+	enemy_manager = manager
 end
 
 function update_enemy()
@@ -481,7 +458,7 @@ function update_enemy()
 			explosion(enemy.x+4, enemy.y+4)
 			sfx(2)
 			timer(5, false, spawn_collectible, {x=enemy.x, y=enemy.y})
-			timer(random(150,30), false, _respawn_enemy, enemy.type)
+			if (enemy.respawn) timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
 		-- Move
 		if (enemy.type == 1) move_enemy_type1(enemy)
@@ -510,7 +487,7 @@ function update_enemy()
 		collision_enemy_fire(bullet)
 	end
 	-- Manage spawn
-	manage_enemy()
+	enemy_manager()
 end
 
 function draw_enemy()
@@ -528,22 +505,35 @@ end
 
 --- === Functions === ---
 
-function spawn_enemy(type, x, y)
+function set_enemy_manager(manager)
+	if (manager == 1 or manager == "scripted") enemy_manager = manage_enemy_scripted
+	if (manager == 2 or manager == "infinite") enemy_manager = manage_enemy_infinite
+end
+
+function spawn_enemy(type, x, y, params)
+	-- Set params defaut value
+	params = params or {}
+	if (params.shield_left == nil) params.shield_left = false
+	if (params.shield_down == nil) params.shield_down = false
+	if (params.shield_random == nil) params.shield_random = true
+	if(params.respawn == nil) params.respawn = true
+	-- Create enemy
 	local enemy = {
 		type = type,
 		x = x,
 		y = y,
-		speed = cst.enemy[type].speed,
-		life = cst.enemy[type].life,
-		sprite = cst.enemy[type].sprt,
+		speed = cst_enemy[type].speed,
+		life = cst_enemy[type].life,
+		sprite = cst_enemy[type].sprt,
 		show = true,
+		respawn = params.respawn,
 		shield = {
-			left = false,
-			down = false
+			left = params.shield_left,
+			down = params.shield_down
 		}
 	}
 	-- Add shield
-	if ((type == 1 or type == 2) and random(100) == 88) then
+	if (params.shield_random and (type == 1 or type == 2) and random(100) == 88) then
 		if (random(2) == 1) enemy.shield.left = true
 		if (not enemy.shield.left) enemy.shield.right = true
 	end
@@ -551,9 +541,17 @@ function spawn_enemy(type, x, y)
 	if (type == 2) enemy.fire = timer(30, true, _fire_enemy2, enemy)
 	if (type == 3) enemy.fire = timer(90, true, _fire_enemy3, enemy)
 	add(enemies.entities, enemy)
+	return enemy
 end
 
-function manage_enemy()
+function manage_enemy_scripted()
+	if (enemies.spawn[1] == 0) then
+		spawn_enemy(3, 120, 64, {shield_left=true,respawn=false})
+		enemies.spawn[1] += 1
+	end
+end
+
+function manage_enemy_infinite()
 	-- Spawn first ennemy
 	if (enemies.spawn[1] == 0) then
 		spawn_enemy(1, 128, random(80,40))
@@ -568,7 +566,7 @@ function manage_enemy()
 		local spawn = rotate_enemy_spawn(134, random(120))
 		local type = 2
 		-- Check what type of enemy spawn
-		if (enemies.spawn[3] == 0 and enemies.spawn[2] == cst.enemy[3].spawn) then
+		if (enemies.spawn[3] == 0 and enemies.spawn[2] == cst_enemy[3].spawn) then
 			type = 3
 		end
 		-- Spawn
@@ -579,7 +577,7 @@ function manage_enemy()
 		local spawn = rotate_enemy_spawn(134, random(120))
 		local type = 1
 		-- Check what type of enemy spawn
-		if (enemies.spawn[2] == 0 and enemies.spawn[1] == cst.enemy[2].spawn) then
+		if (enemies.spawn[2] == 0 and enemies.spawn[1] == cst_enemy[2].spawn) then
 			type = 2
 		end
 		-- Spawn
@@ -602,6 +600,7 @@ function move_enemy_type2(enemy)
 end
 
 function move_enemy_type3(enemy)
+	if (player.life <= 0) return
 	local info = rotate_enemy3_info(enemy.speed, enemy.x, enemy.y, player.x - enemy.x, player.y - enemy.y)
 	enemy.sprite = info.sprite
 	enemy.x += info.x
@@ -615,7 +614,7 @@ function _fire_enemy2(enemy)
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=-1,speedY=1,sprite=96})
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=1,speedY=-1,sprite=96})
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=-1,speedY=-1,sprite=98})
-	sfx(5)
+	sfx(4)
 end
 
 function _fire_enemy3(enemy)
@@ -628,7 +627,7 @@ function _fire_enemy3(enemy)
 		if (player.x < enemy.x) x = -1 
 		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=x,speedY=0,sprite=80})
 	end
-	sfx(5)
+	sfx(4)
 end
 
 function _respawn_enemy(type)
@@ -664,29 +663,29 @@ end
 --- === Functions === ---
 
 function spawn_collectible(params)
-	if (#collectibles >= cst.collectible.max or random(cst.collectible.luck,1) != cst.collectible.luck) return
+	if (#collectibles >= cst_collectible_max or random(cst_collectible_luck,1) != cst_collectible_luck) return
 	-- Type of collectible
 	if (player.life == 1) then
 		-- Player is close to the death only health
-		if (random(2,1) == 1 ) add(collectibles, {sprite=cst.collectible.sprt.life, x=params.x, y=params.y})
+		if (random(2,1) == 1 ) add(collectibles, {sprite=cst_collectible_sprt_life, x=params.x, y=params.y})
 	else
 		-- Health, power up and score
 		local available = {}
-		if (player.life < cst.player.life) add(available, cst.collectible.sprt.life)
-		if (player.energy < cst.player.energy) add(available, cst.collectible.sprt.energy)
-		if (player.power < cst.player.power) add(available, cst.collectible.sprt.power)
-		if (player.speed < cst.player.speed.max) add(available, cst.collectible.sprt.speed)
-		if (#available < 3) add(available, cst.collectible.sprt.score)
+		if (player.life < cst_player_life) add(available, cst_collectible_sprt_life)
+		if (player.energy < cst_player_energy) add(available, cst_collectible_sprt_energy)
+		if (player.power < cst_player_power) add(available, cst_collectible_sprt_power)
+		if (player.speed < cst_player_speed_max) add(available, cst_collectible_sprt_speed)
+		if (#available < 3) add(available, cst_collectible_sprt_score)
 		add(collectibles, {sprite=rnd(available), x=params.x, y=params.y})
 	end
 end
 
 function despawn_collectible(collectible)
-	if (collectible.sprite == cst.collectible.sprt.life) player.score += cst.player.life - player.life
-	if (collectible.sprite == cst.collectible.sprt.energy) player.score += cst.player.energy - player.energy
-	if (collectible.sprite == cst.collectible.sprt.power) player.score += cst.player.power - player.power
-	if (collectible.sprite == cst.collectible.sprt.speed) player.score += cst.player.speed.max - player.speed
-	if (collectible.sprite == cst.collectible.sprt.score) player.score += 1
+	if (collectible.sprite == cst_collectible_sprt_life) player.score += cst_player_life - player.life
+	if (collectible.sprite == cst_collectible_sprt_energy) player.score += cst_player_energy - player.energy
+	if (collectible.sprite == cst_collectible_sprt_power) player.score += cst_player_power - player.power
+	if (collectible.sprite == cst_collectible_sprt_speed) player.score += cst_player_speed_max - player.speed
+	if (collectible.sprite == cst_collectible_sprt_score) player.score += 1
 	del(collectibles, collectible)
 end
 
@@ -732,11 +731,11 @@ end
 
 function collision_collectible(collectible)
 	if (collision_rectangle({{x=collectible.x+1, y=collectible.y+1},{x=collectible.x+6,y=collectible.y+6}}, {{x=player.x,y=player.y},{x=player.x+7,y=player.y+7}})) then
-		if (player.life < cst.player.life and collectible.sprite == cst.collectible.sprt.life) player.life += 1
-		if (collectible.sprite == cst.collectible.sprt.energy) player.energy += 1
-		if (collectible.sprite == cst.collectible.sprt.power) player.power += 1
-		if (collectible.sprite == cst.collectible.sprt.speed) player.speed += .1
-		if (collectible.sprite == cst.collectible.sprt.score) player.score += 8
+		if (player.life < cst_player_life and collectible.sprite == cst_collectible_sprt_life) player.life += 1
+		if (collectible.sprite == cst_collectible_sprt_energy) player.energy += 1
+		if (collectible.sprite == cst_collectible_sprt_power) player.power += 1
+		if (collectible.sprite == cst_collectible_sprt_speed) player.speed += .1
+		if (collectible.sprite == cst_collectible_sprt_score) player.score += 8
 		del(collectibles, collectible)
 		sfx(7)
 	end
@@ -773,7 +772,7 @@ function draw_ui()
 	local sprt = 0
 	-- Life
 	local x = 1
-	for i=1,cst.player.life do
+	for i=1,cst_player_life do
 		sprt = 24
 		if (i > player.life) sprt = 25
 		spr(sprt, x, 114)
@@ -781,12 +780,12 @@ function draw_ui()
 	end
 	-- Energy
 	x = 1
-	for i=1,cst.player.energy do
+	for i=1,cst_player_energy do
 		local flip = false
-		if (i == 1 or i == cst.player.energy) then
-			flip = i == cst.player.energy
+		if (i == 1 or i == cst_player_energy) then
+			flip = i == cst_player_energy
 			sprt = 64
-			if ((i == 1 and player.energy >= 1) or (flip and player.energy >= cst.player.energy)) sprt = 66
+			if ((i == 1 and player.energy >= 1) or (flip and player.energy >= cst_player_energy)) sprt = 66
 		else
 			sprt = 65
 			if (i <= player.energy) sprt = 67
@@ -802,14 +801,14 @@ end
 --background & foreground
 
 function init_ground()
-	planet = {visible=false,speed=cst.ground.planet.speed}
+	planet = {visible=false,speed=cst_ground_planet_speed}
 	stars = {}
 	ligths = {}
-	for i=0,random(cst.ground.light.max,cst.ground.light.min) do
-		add(ligths, {x=-2,speed=cst.ground.light.speed})
+	for i=0,random(cst_ground_light_max,cst_ground_light_min) do
+		add(ligths, {x=-2,speed=cst_ground_light_speed})
 	end
-	for i=0,random(cst.ground.star.max,cst.ground.star.min) do
-		add(stars, {x=-9,speed=cst.ground.star.speed})
+	for i=0,random(cst_ground_star_max,cst_ground_star_min) do
+		add(stars, {x=-9,speed=cst_ground_star_speed})
 	end
 end
 
@@ -817,7 +816,7 @@ function update_ground()
 	-- Planet
 	if (not planet.visible) then
 		-- Show the planet, set the properties
-		planet.sprite = cst.ground.planet.sprt[random(4) + 1]
+		planet.sprite = cst_ground_planet_sprt[random(4) + 1]
 		planet.visible = true
 		local spawn = rotate_ground_spawn(200, random(111))
 		planet.x = spawn.x
@@ -832,7 +831,7 @@ function update_ground()
 	-- Stars
 	for star in all(stars) do 
 		if (star.x < -8 or star.y > 128) then
-			star.sprite = cst.ground.star.sprt[random(3) + 1]
+			star.sprite = cst_ground_star_sprt[random(3) + 1]
 			local spawn = rotate_ground_spawn(random(380,130), random(127))
 			star.x = spawn.x
 			star.y = spawn.y
@@ -898,6 +897,7 @@ function update_bomb()
 		if (bomb.radius < 10) then
 			timer_stop(bomb.timer)
 			init_bomb()
+			player.invincible = false
 		end
 	else
 		bomb.radius += 8
@@ -923,6 +923,7 @@ function blast()
 	bomb.y = player.y + 4
 	bomb.timer = timer(6, true, _bomb_color)
 	player.energy = 0
+	player.invincible = true
 	sfx(3)
 end
 
@@ -947,34 +948,34 @@ function rotate()
 	-- Player animation
 	player.show = false
 	player.thruster.show = false
-	local sprites = cst.player.rotate.sprt.fw
-	if (not rotation) sprites = cst.player.rotate.sprt.bw
-	animate(sprites, cst.player.rotate.duration, player.x, player.y, false, _rotate_player_animation)
+	local sprites = cst_player_animation_rotate_sprt_fw
+	if (not rotation) sprites = cst_player_animation_rotate_sprt_bw
+	animate(sprites, cst_player_animation_rotate_duration, player.x, player.y, false, _rotate_player_animation)
 	-- Change animation sprites
-	player.thruster.sprites = cst.player.thruster.sprt.base
-	if (rotation) player.thruster.sprites = cst.player.thruster.sprt.rota
+	player.thruster.sprites = cst_player_thruster_sprt_base
+	if (rotation) player.thruster.sprites = cst_player_thruster_sprt_rota
 end
 
 function rotate_player_info(btn)
 	if (btn == nil) then
-		if (rotation) return {sprite=cst.player.sprt.rota[1], offset={x=0,y=6}}
-		return {sprite=cst.player.sprt.base[1], offset={x=-6,y=0}}
+		if (rotation) return {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}
+		return {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}}
 	end
 	if (btn == 0) then
-		if (rotation) return {sprite=cst.player.sprt.rota[2], offset={x=-1,y=6}}
-		return {sprite=cst.player.sprt.base[1], offset={x=-6,y=0}}
+		if (rotation) return {sprite=cst_player_sprt_rota[2], offset={x=-1,y=6}}
+		return {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}}
 	end
 	if (btn == 1) then
-		if (rotation) return {sprite=cst.player.sprt.rota[3], offset={x=1,y=6}}
-		return {sprite=cst.player.sprt.base[1], offset={x=-6,y=0}}
+		if (rotation) return {sprite=cst_player_sprt_rota[3], offset={x=1,y=6}}
+		return {sprite=cst_player_sprt_base[1], offset={x=-6,y=0}}
 	end
 	if (btn == 2) then
-		if (rotation) return {sprite=cst.player.sprt.rota[1], offset={x=0,y=6}}
-		return {sprite=cst.player.sprt.base[2], offset={x=-6,y=-1}}
+		if (rotation) return {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}
+		return {sprite=cst_player_sprt_base[2], offset={x=-6,y=-1}}
 	end
 	if (btn == 3) then
-		if (rotation) return {sprite=cst.player.sprt.rota[1], offset={x=0,y=6}}
-		return {sprite=cst.player.sprt.base[3], offset={x=-6,y=1}}
+		if (rotation) return {sprite=cst_player_sprt_rota[1], offset={x=0,y=6}}
+		return {sprite=cst_player_sprt_base[3], offset={x=-6,y=1}}
 	end
 end
 
@@ -986,20 +987,20 @@ end
 function rotate_bullet_info()
 	if (rotation) then 
 		return {
-			sprites=cst.player.bullet.sprt.rota, 
+			sprites=cst_player_bullet_sprt_rota, 
 			speed={
-				base={x=0,y=-cst.player.bullet.speed},
-				diag1={x=cst.player.bullet.speed/2,y=-cst.player.bullet.speed/2},
-				diag2={x=-cst.player.bullet.speed/2,y=-cst.player.bullet.speed/2}
+				base={x=0,y=-cst_player_bullet_speed},
+				diag1={x=cst_player_bullet_speed/2,y=-cst_player_bullet_speed/2},
+				diag2={x=-cst_player_bullet_speed/2,y=-cst_player_bullet_speed/2}
 			}, 
 			offset={base={x=1,y=2},diag1={x=4,y=0},diag2={x=-1,y=2}}}
 	end
 	return {
-		sprites=cst.player.bullet.sprt.base, 
+		sprites=cst_player_bullet_sprt_base, 
 		speed={
-			base={x=cst.player.bullet.speed,y=0},
-			diag1={x=cst.player.bullet.speed/2,y=cst.player.bullet.speed/2},
-			diag2={x=cst.player.bullet.speed/2,y=-cst.player.bullet.speed/2}
+			base={x=cst_player_bullet_speed,y=0},
+			diag1={x=cst_player_bullet_speed/2,y=cst_player_bullet_speed/2},
+			diag2={x=cst_player_bullet_speed/2,y=-cst_player_bullet_speed/2}
 		},
 		offset={base={x=2,y=1},diag1={x=0,y=0},diag2={x=0,y=0}}
 	}
@@ -1021,13 +1022,13 @@ function rotate_ground_speed(speed)
 end
 
 function rotate_enemy1_info(speed, diffX, diffY)
-	local sprite = cst.enemy[1].sprt
+	local sprite = cst_enemy[1].sprt
 	-- Rotation
 	if (rotation) then
 		if (abs(diffY) < 40) then
 			diffX = limit(diffX, speed)
-			if (diffX < 0) sprite = cst.enemy[1].sprt + 3
-			if (diffX > 0) sprite = cst.enemy[1].sprt + 4
+			if (diffX < 0) sprite = cst_enemy[1].sprt + 3
+			if (diffX > 0) sprite = cst_enemy[1].sprt + 4
 		else
 			diffX = 0
 		end
@@ -1036,8 +1037,8 @@ function rotate_enemy1_info(speed, diffX, diffY)
 	-- No rotation
 	if (abs(diffX) < 40) then
 		diffY = limit(diffY, speed)
-		if (diffY < 0) sprite = cst.enemy[1].sprt + 2
-		if (diffY > 0) sprite = cst.enemy[1].sprt + 1
+		if (diffY < 0) sprite = cst_enemy[1].sprt + 2
+		if (diffY > 0) sprite = cst_enemy[1].sprt + 1
 	else
 		diffY = 0
 	end
@@ -1050,19 +1051,19 @@ function rotate_enemy2_info(speed)
 end
 
 function rotate_enemy3_info(speed, x, y, diffX, diffY)
-	local sprite = cst.enemy[3].sprt
+	local sprite = cst_enemy[3].sprt
 	local move = 0
 	if (rotation) then
 		if (y < 8) move = speed
 		diffX = limit(diffX, speed)
-		if (diffX < 0) sprite = cst.enemy[3].sprt + 3
-		if (diffX > 0) sprite = cst.enemy[3].sprt + 4
+		if (diffX < 0) sprite = cst_enemy[3].sprt + 3
+		if (diffX > 0) sprite = cst_enemy[3].sprt + 4
 		return {x=diffX, y=move, sprite=sprite}
 	end
 	if (x > 112) move = -speed
 	diffY = limit(diffY, speed)
-	if (diffY < 0) sprite = cst.enemy[3].sprt + 2
-	if (diffY > 0) sprite = cst.enemy[3].sprt + 1
+	if (diffY < 0) sprite = cst_enemy[3].sprt + 2
+	if (diffY > 0) sprite = cst_enemy[3].sprt + 1
 	return {x=move, y=diffY, sprite=sprite}
 end
 
@@ -1171,7 +1172,7 @@ function _animate(animation)
 end
 
 function shake(intensity)
-	if (intensity == nil) intensity = 1
+	intensity = intensity or 1
 	timer(1, true, _shake, {intensity=intensity})
 end
 
@@ -1231,10 +1232,10 @@ end
 
 function explosion(x, y, params)
 	-- Parameter
-	if (params == nil) params = {}
-	if (params.number == nil) params.number = 8
-	if (params.duration == nil) params.duration = rnd(25)+30
-	if (params.radius == nil) params.radius = 2
+	params = params or {}
+	params.number = params.number or 8
+	params.duration = params.duration or rnd(25)+30
+	params.radius = params.radius or 2
 	-- Add particles for explosion effect
 	for i=0,params.number do
 		particle(
@@ -1254,7 +1255,7 @@ end
 
 function random(max, min)
 	-- max include, min include
-	if (min == nil) min = 0
+	min = min or 0
 	if (min > max) then
 		local tmp = min
 		min = max
@@ -1277,6 +1278,19 @@ function contain(tab, val)
 	end
 	return false
 end
+
+-->8
+--sfx reference
+
+-- 0 = menu cursor mouvement
+-- 1 = menu selection
+-- 2 = enemy explosion
+-- 3 = bomb explosion
+-- 4 = enemy fire
+-- 5 = player fire
+-- 6 = player death
+-- 7 = collectible collected
+-- 8 = player bullet blocked
 
 __gfx__
 00000000000660000006600000000000006600000000000000005500000550000055000000005500000000000000000000000077770000000000009999000000
@@ -1480,6 +1494,6 @@ __sfx__
 00080000386303062025610206101c61019610176101561012610106100f6100d6100b6100a613086130761306613046130361303613006050060500605006050060500605006050060500605006050060500605
 000100002b52329543265532555323551215511f5511c5511955118551165511455113541105410d5310b52108521075210551103511025110151102400023000130003400024000140001400024000240001400
 000100003b32039320363203472032720307202e7202b720297202672023720235000b20007200062000520003200022000120001200000000000000000000000000000000000000000000000000000000000000
-001000001c1431c1331c1231c1131b1031a1030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001200001c1631c1531c1431c1331c1231c1130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0007000023725287252d3021e105370021c0051330213302133021330213302133021330213302133021330213302133021330213302133021330213302133021320207002070022b0001f0001f0021f0021f002
 000800000c32300300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300003000030000300
