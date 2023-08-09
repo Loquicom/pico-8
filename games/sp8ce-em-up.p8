@@ -10,6 +10,7 @@ function _init()
 	init_constant()
 	init_ground()
 	set_title_mode()
+	background_color = cst_ground_color
 end
 
 --- === Title === ---
@@ -35,7 +36,7 @@ end
 
 function draw_title()
 	-- Draw timer and ground animation
-	cls(1)
+	cls(background_color)
 	draw_background()
 	draw_timer()
 	draw_foreground()
@@ -73,7 +74,7 @@ end
 
 function draw_game()
 	-- Draw timer and ground animation
-	cls(1)
+	cls(background_color)
 	draw_background()
 	draw_timer()
 	-- Game specific
@@ -87,15 +88,16 @@ end
 
 --- === End / Game over === ---
 
-function set_end_mode()
-	init_end()
+function set_end_mode(message)
+	init_end(message)
 	_update = update_end
 	_draw = draw_end
 end
 
-function init_end()
+function init_end(message)
 	init_timer()
-	endWaiting = timer(30, false)
+	end_waiting = timer(30, false)
+	end_message = message or "game over"
 end
 
 function update_end()
@@ -103,21 +105,21 @@ function update_end()
 	update_timer()
 	update_ground()
 	-- End specific
-	if (timer_is_end(endWaiting) and btnp(4)) then
+	if (timer_is_end(end_waiting) and btnp(4)) then
 		set_title_mode()
 	end
-	if (timer_is_end(endWaiting) and btnp(5)) then
+	if (timer_is_end(end_waiting) and btnp(5)) then
 		set_game_mode()
 	end
 end
 
 function draw_end()
 	-- Draw timer and ground animation
-	cls(1)
+	cls(background_color)
 	draw_background()
 	draw_foreground()
 	-- End specific
-	print("game over",44,44,7)
+	print(end_message,44,44,7)
  	print("your score:"..flr(player.score),34,54,7)
   	print("press ❎ to play again!",18,72,6)
 	print("press 🅾️ to return to the menu",5,80,6)
@@ -127,7 +129,7 @@ end
 --constant
 
 function init_constant()
-	cst_version = "0.31"
+	cst_version = "0.33"
 	-- Player
 	cst_player_life = 3
 	cst_player_energy = 5
@@ -156,6 +158,8 @@ function init_constant()
 	cst_ground_light_min = 18
 	cst_ground_light_max = 28
 	cst_ground_light_speed = 1.2
+	cst_ground_color = 1
+	cst_ground_color_change = -1
 	-- Enemy
 	cst_enemy = {
 		{
@@ -183,14 +187,14 @@ function init_constant()
 			sprt_rota = 130,
 			speed = 1,
 			life = 40,
-			fire = 20 -- Fire speed
+			fire = 20 -- Time between two bullets
 		},
 		{
 			sprt_base = 132,
 			sprt_rota = 134,
 			speed = 2,
 			life = 40,
-			fire = 10 -- Fire speed
+			fire = 10 -- Time between two bullets
 		}
 	}
 	-- Collectible
@@ -224,22 +228,26 @@ end
 --title
 
 function init_menu()
-	menu_cursor = 2
+	menu_cursor = ternaire(dget(0) != 0, dget(0), 1)
 	explosion_counter = 0
+	gamemode = 0
 end
 
 function update_menu()
  	if (btnp(2) and menu_cursor > 1) then
 		menu_cursor -= 1
 		explosion_counter = 0
+		dset(0, menu_cursor)
 		sfx(0)
 	end
 	if (btnp(3) and menu_cursor < #cst_menu_label) then
 		menu_cursor += 1
 		explosion_counter = 0
+		dset(0, menu_cursor)
 		sfx(0)
 	end
 	if (btnp(4) or btnp(5)) then
+		gamemode = menu_cursor
 		cst_menu_action[menu_cursor]()
 		sfx(1)
 	end
@@ -292,6 +300,7 @@ function nothing()
 	explosion(random(100,20),random(100,20),{radius=3,duration=rnd(120)+120,number=28})
 	explosion_counter += 1
 	if (dget(3) < explosion_counter) dset(3, explosion_counter)
+	if (explosion_counter > 42) background_color = (background_color + cst_ground_color_change) % 16
 end
 
 -->8
@@ -367,7 +376,7 @@ function end_game()
 	-- Reset enemies
 	init_enemy()
 	-- Save best score
-	if (dget(2) < player.score) dset(2, flr(player.score))
+	if (dget(gamemode) < player.score) dset(gamemode, flr(player.score))
 end
 
 function move_player()
@@ -466,12 +475,9 @@ function init_enemy()
 	enemies = {entities={}, bullets={}, spawn = {0,0,0}, kill = {0,0,0}}
 	enemy_manager = manager
 	kill_boss()
-	debug = ""
 end
 
 function update_enemy()
-	if (boss != nil) debug = boss.life
-
 	-- Enemies
 	for enemy in all (enemies.entities) do
 		-- Die
@@ -494,21 +500,21 @@ function update_enemy()
 			if (enemy.fire != nil) timer_stop(enemy.fire)
 			if (player.life > 0) player.score -= enemy.type*2
 			if (player.score < 0) player.score = 0
-			timer(random(150,30), false, _respawn_enemy, enemy.type)
+			if (enemy.respawn) timer(random(150,30), false, _respawn_enemy, enemy.type)
 		end
 		collision_spaceship(enemy)
 		-- Shield particle
 		if ((enemy.shield.left or enemy.shield.down) and random(64) != 8) then
-			local info = ternaire(boss.shield.down, {x=0, y=1, offset={x=random(7),y=11}}, {x=-1, y=0, offset={x=-4,y=random(7)}})
+			local info = ternaire(enemy.shield.down, {x=0, y=1, offset={x=random(7),y=11}}, {x=-1, y=0, offset={x=-4,y=random(7)}})
 			particle(enemy.x+info.offset.x, enemy.y+info.offset.y, random(2,1), 1, {x=info.x, y=info.y}, 12, nil, 4)
 		end
 	end
 	-- Boss
 	if (boss != nil) then
 		boss.update()
-		if ((boss.shield_vert or boss.shield_hori)) then
+		if ((boss.shield_left or boss.shield_down)) then
 			for i=1,3 do
-				local info = ternaire(boss.shield_hori, {x=0, y=1, offset={x=random(15),y=18}}, {x=-1, y=0, offset={x=-3,y=random(15)}})
+				local info = ternaire(boss.shield_down, {x=0, y=1, offset={x=random(15),y=18}}, {x=-1, y=0, offset={x=-3,y=random(15)}})
 				particle(boss.x+info.offset.x, boss.y+info.offset.y, random(2,1), 1, {x=info.x, y=info.y}, 12, nil, 4)
 			end
 		end
@@ -547,8 +553,6 @@ function draw_enemy()
 		spr(sprt + 16, x, y+8)
 		spr(sprt + 17, x+8, y+8)
 	end
-
-	print(debug, 2, 10, 7)
 end
 
 --- === Functions === ---
@@ -566,10 +570,11 @@ function spawn_enemy(type, x, y, params)
 	if (params.shield_random == nil) params.shield_random = true
 	if(params.respawn == nil) params.respawn = true
 	-- Create enemy
+	local spawn = rotate_enemy_spawn(x, y)
 	local enemy = {
 		type = type,
-		x = x,
-		y = y,
+		x = spawn.x,
+		y = spawn.y,
 		speed = cst_enemy[type].speed,
 		life = cst_enemy[type].life,
 		sprite = cst_enemy[type].sprt,
@@ -593,9 +598,27 @@ function spawn_enemy(type, x, y, params)
 end
 
 function manage_enemy_scripted()
-	if (enemies.spawn[1] == 0) then
-		spawn_boss(2)
+	-- enemies.spawn[1] ==> wave number
+	-- enemies.spawn[2] ==> 0 -> Do nothing, 1 -> Spawn next wave, 2 -> End
+	if (enemies.spawn[1] == 0) then -- First wave
+		init_wave()
+		enemies.spawn[1] = 1
+		instanciate_wave(wave[1])
+	elseif (timer_is_end(wave_timer) and enemies.spawn[2] == 1) then -- Next wave
+		enemies.spawn[2] = 0
 		enemies.spawn[1] += 1
+		instanciate_wave(wave[enemies.spawn[1]])
+	elseif (enemies.spawn[2] == 0 and count(enemies.entities) == 0 and boss == nil) then -- Wave end
+		if (enemies.spawn[1] == count(wave)) then -- Last wave
+			enemies.spawn[2] = 2
+		else
+			enemies.spawn[2] = 1
+			wave_timer = timer(60, false)
+		end
+	elseif (enemies.spawn[2] == 2) then -- End game
+		-- Save best score
+		if (dget(1) < player.score) dset(1, flr(player.score))
+		timer(60, false, set_end_mode, "you win")
 	end
 end
 
@@ -611,19 +634,17 @@ function manage_enemy_infinite()
 		end
 	-- When (5 type2 * number of type2 + number of type2) kill, add new type2
 	elseif (enemies.kill[2] != 0 and enemies.kill[2] % ((5*enemies.spawn[2])+enemies.spawn[2]) == 0) then
-		local spawn = rotate_enemy_spawn(134, random(120))
 		-- Check what type of enemy spawn
 		local type = ternaire(enemies.spawn[3] == 0 and enemies.spawn[2] == cst_enemy[3].spawn, 3, 2)
 		-- Spawn
-		spawn_enemy(type, spawn.x, spawn.y)
+		spawn_enemy(type, 134, random(120))
 		enemies.spawn[type] += 1
 	-- When (5 type1 * number of type1 + number of type1) kill, add new type1
 	elseif (enemies.kill[1] != 0 and enemies.kill[1] % ((5*enemies.spawn[1])+enemies.spawn[1]) == 0) then
-		local spawn = rotate_enemy_spawn(134, random(120))
 		-- Check what type of enemy spawn
 		local type = ternaire(enemies.spawn[2] == 0 and enemies.spawn[1] == cst_enemy[2].spawn, 2, 1)
 		-- Spawn
-		spawn_enemy(type, spawn.x, spawn.y)
+		spawn_enemy(type, 134, random(120))
 		enemies.spawn[type] += 1
 	end
 end
@@ -652,6 +673,7 @@ end
 --- === Timers === ---
 
 function _fire_enemy2(enemy)
+	if (enemy.x > 128 or enemy.y < 0) return -- Don't fire if ennemy is outside the screen
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=1,speedY=1,sprite=98})
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=-1,speedY=1,sprite=96})
 	add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=1,speedY=-1,sprite=96})
@@ -660,6 +682,7 @@ function _fire_enemy2(enemy)
 end
 
 function _fire_enemy3(enemy)
+	if (enemy.x > 128 or enemy.y < 0) return -- Don't fire if ennemy is outside the screen
 	if (rotation) then
 		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=0,speedY=ternaire(player.y < enemy.y, -1, 1),sprite=82})
 	else
@@ -669,15 +692,14 @@ function _fire_enemy3(enemy)
 end
 
 function _respawn_enemy(type)
-	local spawn = rotate_enemy_spawn(134, random(120))
-	spawn_enemy(type, spawn.x, spawn.y)
+	spawn_enemy(type, 134, random(120))
 end
 
 -->8
 --boss
 
 function spawn_boss(type)
-	local rotate = ternaire(type == 2, not rotation, false)
+	local rotate = ternaire(type == 2, not rotation, rotation)
 	local spawn = rotate_enemy_spawn(134, 56, rotate)
 	boss = {
 		type = type,
@@ -691,8 +713,8 @@ function spawn_boss(type)
 		rotate = rotate,
 		rotate_timer = nil,
 		fire_timer = timer(cst_boss[type].fire, true, _ENV['_fire_boss'..type]),
-		shield_vert = false,
-		shield_hori = false,
+		shield_left = false,
+		shield_down = false,
 		sprite = ternaire(rotate, cst_boss[type].sprt_rota, cst_boss[type].sprt_base),
 		update = _ENV['update_boss'..type],
 		draw = _ENV['draw_boss'..type]
@@ -741,8 +763,8 @@ function update_boss1()
 		boss.x = spawn.x
 		boss.y = spawn.y
 		if (boss.phase == 2) then
-			boss.shield_hori = boss.rotate
-			boss.shield_vert = not boss.rotate
+			boss.shield_down = boss.rotate
+			boss.shield_left = not boss.rotate
 		end
 	end
 end
@@ -820,8 +842,8 @@ function update_boss2_phase2()
 		boss.sprite = ternaire(rotation, cst_boss[boss.type].sprt_rota, cst_boss[boss.type].sprt_base) + 4
 		boss.x = spawn.x
 		boss.y = spawn.y
-		boss.shield_vert = rotation
-		boss.shield_hori = not rotation
+		boss.shield_left = rotation
+		boss.shield_down = not rotation
 	end
 end
 
@@ -835,8 +857,8 @@ function change_phase_boss2()
 		boss.sprite = ternaire(rotation, cst_boss[boss.type].sprt_rota, cst_boss[boss.type].sprt_base) + 4
 		boss.x = spawn.x
 		boss.y = spawn.y
-		boss.shield_vert = rotation
-		boss.shield_hori = not rotation
+		boss.shield_left = rotation
+		boss.shield_down = not rotation
 		rotate_delete_callback(on_rotate_boss)
 	else -- Go outside the screen
 		if (boss.rotate) then
@@ -866,6 +888,62 @@ function _fire_boss2()
 	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed.x,speedY=info.speed.y,sprite=116})
 	if (boss.phase == 2) add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=-info.speed.x,speedY=-info.speed.y,sprite=116})
 	sfx(4)
+end
+
+-->8
+--wave
+
+function init_wave()
+	wave_timer = nil
+	-- type,time,y[number,r(random)],shield left[t(true),f(false),r(rotate)] (optional, f default),shield right[t(true),f(false),r(rotate)] (optional, f default)
+	wave = {
+		"1,0,60", -- 1
+		"1,0,60;1,50,20;1,50,100;1,100,20;1,100,60;1,100,100", -- 2
+		"", -- 3
+		"2,0,60", -- 4
+		"", -- 5
+		"", -- 6
+		"", -- 7
+		"", -- 8
+		"1,0,60,r,r;1,60,20,t,f;1,60,100,t,f;1,120,40,t,f;1,120,80,t,f", -- 9
+		"", -- 10
+		"", -- 11
+		"", -- 12
+		"4", -- 13
+		"", -- 14
+		"", -- 15
+		"2,0,60,r,r;2,60,20,t,f;2,60,100,t,f;2,120,40,t,f;2,120,80,t,f", -- 16
+		"", -- 17
+		"", -- 18
+		"3,0,60", -- 19
+		"", -- 20
+		"", -- 21
+		"", -- 22
+		"3,0,60,r,r", -- 23
+		"", -- 24
+		"", -- 25
+		"", -- 26
+		"", -- 27
+		"5", -- 28
+		"1,0,60,r,r" -- 29
+	}
+end
+
+function instanciate_wave(wave)
+	local data = split(wave, ";")
+	for enemy in all(data) do
+		local info = split(enemy, ",")
+		if (info[1] > 3) then -- Enemie type > 3 == Boss (4 -> Boss 1 and 5 -> Boss 2)
+			spawn_boss(info[1]-3)
+		else
+			local y = ternaire(info[3] == 'r', random(120,8), info[3])
+			local shield_left = ternaire(info[4] == 'r', not rotation, info[4] == 't')
+			local shield_down = ternaire(info[5] == 'r', rotation, info[5] == 't')
+			timer(info[2], false, function()
+				spawn_enemy(info[1], 134, y, {shield_left=shield_left, shield_down=shield_down,shield_random=false,respawn=false})
+			end)
+		end
+	end
 end
 
 -->8
@@ -945,7 +1023,7 @@ function collision_player_fire(bullet)
 		local boss_coord = ternaire(boss.rotate, {{x=boss.x,y=boss.y+5},{x=boss.x+15,y=boss.y+15}}, {{x=boss.x+5,y=boss.y},{x=boss.x+15,y=boss.y+15}})
 		if (collision_rectangle({{x=bullet.x+1, y=bullet.y+1},{x=bullet.x+4,y=bullet.y+4}}, boss_coord)) then
 			-- Check no shield
-			if ((not rotation and not boss.shield_vert) or (rotation and not boss.shield_hori)) then
+			if ((not rotation and not boss.shield_left) or (rotation and not boss.shield_down)) then
 				boss.life -= player_bullet_damage(bullet)
 				if (boss.phase == 1 and boss.life <= cst_boss[boss.type].life / 2) boss.update = _ENV['change_phase_boss'..boss.type]
 				if (boss.life <= 0) then
