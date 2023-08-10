@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 --sp8ce'em up
---a SPATIAL SHOOT'EM UP
+--a SPATIAL SHOOT'EM UP by Loquicom
 --gameloop
 
 function _init()
@@ -129,7 +129,7 @@ end
 --constant
 
 function init_constant()
-	cst_version = "0.34"
+	cst_version = "0.35"
 	-- Player
 	cst_player_life = 3
 	cst_player_energy = 5
@@ -202,6 +202,7 @@ function init_constant()
 			fire = 10 -- Time between two bullets
 		}
 	}
+	cst_boss_sprt_fire = 89
 	-- Collectible
 	cst_collectible_luck = 8 -- More luck => less spawn
 	cst_collectible_max = 3 -- Maximum collectible on the screen at the same time
@@ -626,32 +627,45 @@ function manage_enemy_scripted()
 		if (dget(1) < player.score) dset(1, flr(player.score))
 		timer(60, false, set_end_mode, "you win")
 	end
+	-- Set 5 life max for player
+	cst_player_life = 5
 end
 
 function manage_enemy_infinite()
+	local spawn1 = enemies.spawn[1]
+	local spawn2 = enemies.spawn[2]
+	local spawn3 = enemies.spawn[3]
+	local kill1 = enemies.kill[1]
+	local kill2 = enemies.kill[2]
+	local kill3 = enemies.kill[3]
 	-- Spawn first ennemy
 	if (enemies.spawn[1] == 0) then
 		spawn_enemy(1, 128, random(80,40))
 		enemies.spawn[1] += 1
-	-- When type3 is killed 5 time decread fire cd
-	elseif (enemies.kill[3] != 0 and enemies.kill[3] % 2 == 0) then
+	-- When type3 is killed 5 time decrease fire cd
+	elseif (kill3 != 0 and kill3 % 2 == 0) then
 		for enemy in all(enemies) do
 			if (enemy.type == 3) enemy.fire.duration -= 2
 		end
 	-- When (5 type2 * number of type2 + number of type2) kill, add new type2
-	elseif (enemies.kill[2] != 0 and enemies.kill[2] % ((5*enemies.spawn[2])+enemies.spawn[2]) == 0) then
+	elseif (kill2 != 0 and kill2 % ((5*spawn2)+spawn2) == 0) then
 		-- Check what type of enemy spawn
-		local type = ternaire(enemies.spawn[3] == 0 and enemies.spawn[2] == cst_enemy[3].spawn, 3, 2)
+		local type = ternaire(spawn3 == 0 and spawn2 == cst_enemy[3].spawn, 3, 2)
 		-- Spawn
 		spawn_enemy(type, 134, random(120))
 		enemies.spawn[type] += 1
 	-- When (5 type1 * number of type1 + number of type1) kill, add new type1
-	elseif (enemies.kill[1] != 0 and enemies.kill[1] % ((5*enemies.spawn[1])+enemies.spawn[1]) == 0) then
+	elseif (kill1 != 0 and kill1 % ((5*spawn1)+spawn1) == 0) then
 		-- Check what type of enemy spawn
-		local type = ternaire(enemies.spawn[2] == 0 and enemies.spawn[1] == cst_enemy[2].spawn, 2, 1)
+		local type = ternaire(spawn2 == 0 and spawn1 == cst_enemy[2].spawn, 2, 1)
 		-- Spawn
 		spawn_enemy(type, 134, random(120))
 		enemies.spawn[type] += 1
+	end
+	-- Chance of spanw type4 increase for each enemies spawned
+	if spawn1 > 2 and random(1800) <= spawn1 + spawn2 + spawn3 then
+		spawn_enemy(4, 134, random(120), {respawn = false})
+		enemies.spawn[4] += 1
 	end
 end
 
@@ -902,16 +916,16 @@ end
 function _fire_boss1()
 	if (boss.move) return
 	local info = ternaire(boss.rotate, {offset={x=4,y=12},speed={{x=0,y=1},{x=-1,y=1},{x=1,y=1}}}, {offset={x=0,y=4},speed={{x=-1,y=0},{x=-1,y=1},{x=-1,y=-1}}})
-	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[1].x,speedY=info.speed[1].y,sprite=89})
-	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[2].x,speedY=info.speed[2].y,sprite=89})
-	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[3].x,speedY=info.speed[3].y,sprite=89})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[1].x,speedY=info.speed[1].y,sprite=cst_boss_sprt_fire})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[2].x,speedY=info.speed[2].y,sprite=cst_boss_sprt_fire})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed[3].x,speedY=info.speed[3].y,sprite=cst_boss_sprt_fire})
 	sfx(4)
 end
 
 function _fire_boss2()
 	local info = ternaire(boss.rotate, {offset={x=4,y=12},speed={x=0,y=1}}, {offset={x=0,y=4},speed={x=-1,y=0}})
-	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed.x,speedY=info.speed.y,sprite=89})
-	if (boss.phase == 2) add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=-info.speed.x,speedY=-info.speed.y,sprite=89})
+	add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=info.speed.x,speedY=info.speed.y,sprite=cst_boss_sprt_fire})
+	if (boss.phase == 2) add(enemies.bullets, {x=boss.x+info.offset.x,y=boss.y+info.offset.y,speedX=-info.speed.x,speedY=-info.speed.y,sprite=cst_boss_sprt_fire})
 	sfx(4)
 end
 
