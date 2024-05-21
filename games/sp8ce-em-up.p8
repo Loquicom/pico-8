@@ -60,8 +60,8 @@ function init_game()
 	init_bomb()
 	init_collectible()
 	-- Music
-	if (selectedMode == "scripted") music(6,120)
-	if (selectedMode == "infinite") music(12,120)
+	if (selectedMode == "scripted") change_music(6)
+	if (selectedMode == "infinite") change_music(12)
 end
 
 function update_game()
@@ -99,8 +99,8 @@ end
 
 function init_end(message)
 	init_timer()
-	music(17,120)
-	end_waiting = timer(30, false)
+	change_music(17)
+	end_waiting = timer(20, false)
 	end_message = message or "game over"
 end
 
@@ -133,13 +133,13 @@ end
 --constant
 
 function init_constant()
-	cst_version = "0.36"
+	cst_version = "1.00"
 	-- Player
 	cst_player_life = 5 -- Max 14
 	cst_player_energy = 5
 	cst_player_power = 3
 	cst_player_speed_base = 2
-	cst_player_speed_max = 3
+	cst_player_speed_max = 3.6
 	cst_player_sprt_base = {1,2,3}
 	cst_player_sprt_rota = {7,8,9}
 	cst_player_thruster_duration = 8
@@ -239,9 +239,10 @@ end
 
 function init_menu()
 	menu_cursor = ternaire(dget(0) != 0, dget(0), 1)
+	cst_player_life = ternaire(dget(4) != 0, dget(4), cst_player_life)
 	explosion_counter = 0
 	gamemode = 0
-	music(0, 120)
+	change_music(0)
 end
 
 function update_menu()
@@ -251,18 +252,22 @@ function update_menu()
 		explosion_counter = 0
 		dset(0, menu_cursor)
 		sfx(0)
-	end
-	if (btnp(3) and menu_cursor < #cst_menu_label) then
+	elseif (btnp(3) and menu_cursor < #cst_menu_label) then
 		menu_cursor += 1
 		explosion_counter = 0
 		dset(0, menu_cursor)
 		sfx(0)
-	end
 	-- Life selector
-	if (btnp(0) and cst_player_life > 1) cst_player_life -= 1
-	if (btnp(1) and cst_player_life < 14) cst_player_life += 1
+	elseif (btnp(0) and cst_player_life > 1) then 
+		cst_player_life -= 1
+		dset(4, cst_player_life)
+		sfx(0)
+	elseif (btnp(1) and cst_player_life < 14) then
+		cst_player_life += 1
+		dset(4, cst_player_life)
+		sfx(0)
 	-- Launch
-	if (btnp(4) or btnp(5)) then
+	elseif (btnp(4) or btnp(5)) then
 		gamemode = menu_cursor
 		cst_menu_action[menu_cursor]()
 		sfx(1)
@@ -319,7 +324,7 @@ function nothing()
 	explosion(random(100,20),random(100,20),{radius=3,duration=rnd(120)+120,number=28})
 	explosion_counter += 1
 	if (dget(3) < explosion_counter) dset(3, explosion_counter)
-	if (explosion_counter > 42) background_color = (background_color + cst_ground_color_change) % 16
+	if (explosion_counter > 21) background_color = (background_color + cst_ground_color_change) % 16
 end
 
 -->8
@@ -493,6 +498,7 @@ function init_enemy()
 	local manager = enemy_manager or manage_enemy_infinite
 	enemies = {entities={}, bullets={}, spawn = {0,0,0,0}, kill = {0,0,0,0}}
 	enemy_manager = manager
+	num_wave = 0
 	kill_boss()
 end
 
@@ -572,8 +578,6 @@ function draw_enemy()
 		spr(sprt + 16, x, y+8)
 		spr(sprt + 17, x+8, y+8)
 	end
-
-	print(num_wave, 16,16,7)
 end
 
 --- === Functions === ---
@@ -614,17 +618,18 @@ function spawn_enemy(type, x, y, params)
 	end
 	-- Add fire
 	if (type == 2) enemy.fire = timer(30, true, _fire_enemy2, enemy)
-	if (type == 3) enemy.fire = timer(90, true, _fire_enemy3, enemy)
-	if (type == 4) enemy.vert = rotation;
+	if (type == 3) enemy.fire = timer(60, true, _fire_enemy3, enemy)
+	if (type == 4) enemy.vert = rotation
 	add(enemies.entities, enemy)
 	return enemy
 end
 
 function manage_enemy_scripted()
 	-- enemies.spawn[1] ==> wave number
+	-- enemies.spawn[2] ==> Nb of enemies left to spawn in the wave
 	if (enemies.spawn[1] == 0) then 
 		next_wave()
-	elseif (timer_is_end(wave_timer) and count(enemies.entities) == 0 and boss == nil) then -- Wave end
+	elseif (timer_is_end(wave_timer) and enemies.spawn[2] == 0 and count(enemies.entities) == 0 and boss == nil) then -- Wave end
 		if (enemies.spawn[1] == count(wave)) then -- Last wave
 			-- Save best score
 			if (dget(1) < player.score) dset(1, flr(player.score))
@@ -727,9 +732,9 @@ end
 function _fire_enemy3(enemy)
 	if (enemy.x > 128 or enemy.y < 0) return -- Don't fire if ennemy is outside the screen
 	if (rotation) then
-		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=0,speedY=ternaire(player.y < enemy.y, -1, 1),sprite=82})
+		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=0,speedY=ternaire(player.y < enemy.y, -2, 2),sprite=82})
 	else
-		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=ternaire(player.x < enemy.x, -1, 1),speedY=0,sprite=80})
+		add(enemies.bullets, {x=enemy.x,y=enemy.y,speedX=ternaire(player.x < enemy.x, -2, 2),speedY=0,sprite=80})
 	end
 	sfx(4)
 end
@@ -768,7 +773,7 @@ function spawn_boss(type)
 		boss.rand = 64
 		boss.rand_timer = timer(60, true, function() boss.rand = random(20, 108) end)
 	end
-	music(21,120)
+	change_music(21)
 end
 
 function kill_boss()
@@ -778,8 +783,8 @@ function kill_boss()
 	timer_stop(boss.fire_timer)
 	if (boss.rand_timer) timer_stop(boss.rand_timer)
 	rotate_delete_callback(on_rotate_boss)
+	change_music(6)
 	boss = nil
-	music(6,120)
 end
 
 function update_boss1()
@@ -940,60 +945,75 @@ end
 
 function init_wave()
 	wave_timer = nil
-	-- type,time,y[number,r(random)],shield left[t(true),f(false),r(rotate)] (optional, f default),shield right[t(true),f(false),r(rotate)] (optional, f default)
+	-- type,time,y[number,r(random)],shield left[t(true),f(false),r(rotate)] (optional, f default),shield down[t(true),f(false),r(rotate)] (optional, f default)
 	wave = {
-		"1,0,60", -- 1
-		"1,0,60;1,50,20;1,50,100;1,100,20;1,100,60;1,100,100", -- 2
-		"", -- 3
-		"2,0,60", -- 4
-		"", -- 5
-		"", -- 6
-		"", -- 7
-		"", -- 8
-		"1,0,60,r,r;1,60,20,t,f;1,60,100,t,f;1,120,40,t,f;1,120,80,t,f", -- 9
-		"", -- 10
-		"", -- 11
-		"", -- 12
-		"4", -- 13
-		"", -- 14
-		"", -- 15
-		"2,0,60,r,r;2,60,20,t,f;2,60,100,t,f;2,120,40,t,f;2,120,80,t,f", -- 16
-		"", -- 17
-		"", -- 18
-		"3,0,60", -- 19
-		"", -- 20
-		"", -- 21
-		"", -- 22
-		"3,0,60,r,r", -- 23
-		"", -- 24
-		"", -- 25
-		"", -- 26
-		"", -- 27
-		"5", -- 28
-		"1,0,60,r,r" -- 29
+		"1,0,60", -- 1: Show enemy type 1
+		"1,0,60|1,50,20|1,50,100|1,100,20|1,100,60|1,100,100", -- 2
+		"1,0,r|1,0,r|1,50,r|1,50,r|1,50,r|1,50,r|1,100,r|1,100,r|1,100,r", -- 3: Random
+		"1,0,60|1,0,r|1,0,r|1,50,20|1,50,100|1,50,r|1,100,20|1,100,60|1,100,100|1,100,r|1,100,r|1,150,20|1,150,r|1,150,r|1,200,100|1,200,r|1,200,r|1,250,60|1,250,r|1,250,r", -- 4: Fixe + Random
+		"2,0,60|1,100,20|1,100,100", -- 5: Show enemy type 2
+		"2,0,20|2,0,100|1,50,60|2,150,40|2,150,80|1,200,20|1,200,100", -- 6
+		"2,0,60|1,30,20|2,50,20|2,50,100|1,80,60|1,80,100", -- 7
+		"2,0,60|2,20,20|2,20,100|1,30,20|1,30,60|1,30,100|2,50,40|2,50,80|1,60,40|1,60,80", -- 8
+		"2,0,20|2,0,40|2,0,60|2,0,80|2,0,100|2,200,40|2,200,80|2,220,40|2,220,80|1,230,r|1,240,r|1,250,r", -- 9
+		"1,0,60,f,t|1,100,20,t|1,200,60,r,r|1,300,20,t|1,300,100,f,t|1,400,20,t", -- 10: Show shield
+		"1,0,60,t|1,50,60,f,t|1,100,60,t|1,150,60,f,t|1,200,6,t|1,250,60,f,t|1,300,6,t|1,350,60,f,t|1,400,60,t", -- 11
+		"1,0,40,f,t|1,0,80,t|1,50,40,t|1,50,80,f,t|1,100,40,f,t|1,100,80,t|1,150,40,t|1,150,80,f,t|1,200,60,t", -- 12
+		"1,0,60,r,r|1,80,60,r,r|1,160,60,r,r|1,240,60,r,r|1,320,60,r,r|1,400,60,r,r", -- 13: Rotate shield
+		"1,0,r,r,r|1,80,r,r,r|1,160,r,r,r|1,240,r,r,r|1,320,r,r,r|1,400,r,r,r|1,480,r,r,r", -- 14: Random + rotate
+		"2,0,60,t|1,50,40|1,50,80|2,150,60,f,t|1,200,40|1,200,80", -- 15: Type 2 shield
+		"2,0,40,t|2,0,80,f,t|1,50,20|1,50,100|2,150,60|1,150,40,f,t|1,150,80,t|2,200,60,r,r", -- 16
+		"1,0,20|1,0,40|1,0,60|1,0,80|1,0,100|2,0,30|2,0,90|1,100,70|1,100,50", -- 17
+		"1,0,0,r,r|1,0,10,r,r|1,0,20,r,r|1,0,30,r,r|1,0,40,r,r|1,0,50,r,r|1,0,60,r,r|1,0,70,r,r|2,20,40|1,50,100", -- 18: The wall
+		"1,0,r|1,40,r,r,r|1,80,r|2,120,r,r,r|1,160,r|1,200,r,r,r|2,200,r,r,r|1,240,r|2,280,r|1,320,r,r,r|2,360,r|1,400,r,r,r", -- 19
+		"5", -- 20: Boss 1
+		"1,0,60|2,50,20,f,t|2,50,100,f,t", -- 21: Pause
+		"3,0,60", -- 22: Show enemy type 3
+		"1,0,40|1,0,60|1,0,80|3,40,r|1,80,20|1,80,100", -- 23
+		"1,0,40|2,0,60|1,0,80|3,40,r|2,80,20|2,80,100", -- 24
+		"3,0,60,r,r|1,50,20|1,50,100|1,100,r|1,100,r|1,100,r", -- 25: Show type 3 with shield
+		"1,0,40|1,0,80|2,0,60,r,r|3,50,60,r,r|1,150,20|1,150,100|2,200,60,r,r", -- 26
+		"3,0,r,r,r|1,0,r|1,20,r|1,40,r|1,60,r|1,80,r|1,100,r|2,100,r,r,r|1,120,r|1,140,r|1,160,r|1,180,r|1,200,r", -- 27
+		"2,0,20|2,0,40|2,0,60|2,0,80|2,0,100|1,20,30|1,20,50|1,20,70|1,20,90|3,40,r", -- 28: The wall 2
+		"3,0,60,r,r|1,50,20|1,50,60|1,50,100|1,80,r|1,80,r|2,100,r,t|2,100,r,f,t|1,150,20|1,150,60|1,150,100|1,180,r|1,180,r", -- 29
+		"3,0,60,r,r|4,50,20|4,50,60|4,50,100|4,80,r|4,80,r", -- 30: Show enemy type 4
+		"1,0,r|4,20,r|1,50,r|4,70,r|1,100,r|4,120,r|1,150,r|4,170,r|1,200,r|4,220,r", -- 31
+		"1,0,r|4,20,r,r,r|1,50,r|4,70,r,r,r|1,100,r|4,120,r,r,r|1,150,r|4,170,r,r,r|1,200,r|4,220,r,r,r", -- 32
+		"2,0,40|2,0,80|4,20,60|2,100,20,r,r|2,100,100,r,r|4,120,r|4,120,r|4,150,r,r,r|1,150,r,r,r", -- 33
+		"2,0,40,r,r|2,0,80,r,r|4,20,60|4,20,r|4,20,r|3,100,r,r,r|4,120,60|4,120,r|4,120,r", -- 34
+		"2,0,20|2,0,100|3,0,60|3,10,60|3,20,60|4,50,r|4,50,r", -- 35: Show stacked type 3
+		"2,0,20|2,0,100|3,0,60,r,r|3,10,60,r,r|3,20,60,r,r|4,50,r|1,50,r", -- 36
+		"3,0,r|1,0,r|4,0,r|2,50,r|3,100,r,r,r|1,100,r|4,100,r|2,150,r,r,r|3,200,r|1,200,r,r,r|4,200,r,r,r", -- 37
+		"2,0,20|2,0,100|3,0,60|3,10,60|3,20,60|3,30,60|3,40,60|3,50,60|3,60,60|4,100,r|4,100,r|1,100,r|1,100,r", -- 38: Maxi stack
+		"2,0,r,t|2,0,r,f,t|1,50,r|4,50,r,r,r|3,100,r,r,r|1,150,r,r,r|4,150,r|2,200,60", -- 39
+		"6", -- 40: Boss 2
+		"1,100,r,r,r", -- 41: Awake
+		"4,0,60,t,t|4,20,20,t,t|4,20,100,t,t|4,420,r", -- 42: Evade
 	}
 end
 
 function next_wave()
 	enemies.spawn[1] += 1
-	 num_wave = enemies.spawn[1]
+	num_wave = enemies.spawn[1]
 	if (num_wave == 1) init_wave()
 	instanciate_wave(wave[num_wave])
 end
 
 function instanciate_wave(wave)
-	local data = split(wave, ";")
+	local data = split(wave, "|")
+	enemies.spawn[2] = count(data)
 	for enemy in all(data) do
-		debug = enemy
 		local info = split(enemy, ",")
 		if (info[1] > 4) then -- Enemie type > 4 == Boss (5 -> Boss 1 and 6 -> Boss 2)
 			spawn_boss(info[1]-4)
+			enemies.spawn[2] -= 1
 		else
-			local y = ternaire(info[3] == 'r', random(120,8), info[3])
-			local shield_left = ternaire(info[4] == 'r', not rotation, info[4] == 't')
-			local shield_down = ternaire(info[5] == 'r', rotation, info[5] == 't')
 			timer(info[2], false, function()
+				local y = ternaire(info[3] == 'r', random(120,8), info[3])
+				local shield_left = ternaire(info[4] == 'r', not rotation, info[4] == 't')
+				local shield_down = ternaire(info[5] == 'r', rotation, info[5] == 't')
 				spawn_enemy(info[1], 134, y, {shield_left=shield_left, shield_down=shield_down,shield_random=false,respawn=false})
+				enemies.spawn[2] -= 1
 			end)
 		end
 	end
@@ -1128,7 +1148,7 @@ function collision_collectible(collectible)
 		if (player.life < cst_player_life and collectible.sprite == cst_collectible_sprt_life) player.life += 1
 		if (collectible.sprite == cst_collectible_sprt_energy) player.energy += 1
 		if (collectible.sprite == cst_collectible_sprt_power) player.power += 1
-		if (collectible.sprite == cst_collectible_sprt_speed) player.speed += .1
+		if (collectible.sprite == cst_collectible_sprt_speed) player.speed += .2
 		if (collectible.sprite == cst_collectible_sprt_score) player.score += 8
 		del(collectibles, collectible)
 		sfx(7)
@@ -1222,6 +1242,8 @@ function draw_ui()
 			x -= 9
 		end
 	end
+	-- Wave in scripted mode
+	if (gamemode == 1) print("wAVE: "..num_wave,96,2,7)
 end
 
 -->8
@@ -1709,6 +1731,11 @@ end
 function ternaire(cond, val1, val2)
 	if (cond) return val1
 	return val2
+end
+
+function change_music(num)
+	if (music_num != num) music(num, 120)
+	music_num = num
 end
 
 -->8
